@@ -9,6 +9,7 @@
 #include <stdlib.h>
 #include <stdio.h>
 #include <conio.h>
+#include "UIFunctions.h"
 
 #define DEFAULT_BUFLEN 512
 #define MESSAGE_BUFFER_SIZE 1024
@@ -20,6 +21,7 @@ bool InitializeWindowsSockets();
 
 int main(int argc, char** argv)
 {
+    setWindowSize();
     // socket used to communicate with server
     SOCKET connectSocket = INVALID_SOCKET;
     // variable used to store function return value
