@@ -3,9 +3,14 @@
 #include <stdlib.h>
 #include <stdio.h>
 #include <string.h>
+#include <ws2tcpip.h>
 #include "Queue.h"
 
+CRITICAL_SECTION cs;
+
 void Enqueue(char* message, element **root) {
+	EnterCriticalSection(&cs);
+
 	element* temp = *root;
 
 	element* newEl = (element*)malloc(sizeof(element));
@@ -13,11 +18,18 @@ void Enqueue(char* message, element **root) {
 	strcpy(newEl->value, message);
 
 	*root = newEl;
+
+	LeaveCriticalSection(&cs);
 }
 
 char* Dequeue(element **root) {
-	if (root == NULL)
+	EnterCriticalSection(&cs);
+
+	if (*root == NULL) {
+		LeaveCriticalSection(&cs);
 		return NULL;
+	}
+
 
 	int count = QueueCount(*root);
 	element* temp = *root;
@@ -43,10 +55,13 @@ char* Dequeue(element **root) {
 		*root = NULL;
 	}
 
+	LeaveCriticalSection(&cs);
+
 	return message;
 }
 
 void InitQueue(element** root) {
+	InitializeCriticalSection(&cs);
 	*root = NULL;
 }
 

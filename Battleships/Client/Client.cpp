@@ -11,23 +11,31 @@
 #include <conio.h>
 
 #define DEFAULT_BUFLEN 512
-#define MESSAGE_BUFFER_SIZE 1024
+#define MESSAGE_SEND_BUFFER_SIZE 1024
+#define MESSAGE_RECIEVE_BUFFER_SIZE 8
 #define DEFAULT_PORT 27016
 
 // Initializes WinSock2 library
 // Returns true if succeeded, false otherwise.
 bool InitializeWindowsSockets();
 
+DWORD WINAPI SendMessageToServer(LPVOID lpParam);
+DWORD WINAPI ReceiveMessageFromServer(LPVOID lpParam);
+
+char messageToSend[MESSAGE_SEND_BUFFER_SIZE] = "";    
+char receivedMessage[MESSAGE_RECIEVE_BUFFER_SIZE] = "";
+SOCKET connectSocket = INVALID_SOCKET;
+HANDLE errorSemaphore;
+
 int main(int argc, char** argv)
 {
-    // socket used to communicate with server
-    SOCKET connectSocket = INVALID_SOCKET;
-    // variable used to store function return value
     int iResult;
-    // message to send
-    char messageToSend[MESSAGE_BUFFER_SIZE] = "";
 
-    // Validate the parameters
+    DWORD threadSenderID, threadReceiverID;
+    HANDLE threadSender, threadReceiver;
+
+    errorSemaphore = CreateSemaphore(NULL, 0, 1, NULL);
+
     if (argc != 2)
     {
         printf("usage: %s server-name\n", argv[0]);
@@ -66,27 +74,23 @@ int main(int argc, char** argv)
         WSACleanup();
     }
 
-    while (true) {
-
-        printf("Type message to server: ");
-        scanf("%s", messageToSend);
-
-        if (strcmp(messageToSend, "exit") == 0)
-            break;
-
-        // Send an prepared message with null terminator included
-        iResult = send(connectSocket, messageToSend, (int)strlen(messageToSend) + 1, 0);
-
-        if (iResult == SOCKET_ERROR)
-        {
-            printf("send failed with error: %d\n", WSAGetLastError());
+    //welcome message from server
+    iResult = recv(connectSocket, receivedMessage, DEFAULT_BUFLEN, 0);
+    if (iResult > 0)
+    {
+        if(strcmp(receivedMessage, "true") == 0)
+            printf("Server accepted player.\n");
+        else {
+            printf("Server denide player.");
             closesocket(connectSocket);
-            WSACleanup();
-            return 1;
+            return 5;
         }
-
-        printf("Bytes Sent: %ld\n", iResult);
     }
+
+    //thread sender
+    threadSender = CreateThread(NULL, 0, &SendMessageToServer, NULL, 0, &threadSenderID);
+    threadReceiver = CreateThread(NULL, 0, &ReceiveMessageFromServer, NULL, 0, &threadReceiverID);
+    WaitForSingleObject(errorSemaphore, INFINITE);
 
     // cleanup
     closesocket(connectSocket);
@@ -105,4 +109,49 @@ bool InitializeWindowsSockets()
         return false;
     }
     return true;
+}
+
+DWORD WINAPI SendMessageToServer(LPVOID lpParam) {
+    while (true) {
+        printf("Type message to server: ");
+        scanf("%s", messageToSend);
+
+        if (strcmp(messageToSend, "exit") == 0) {
+            ReleaseSemaphore(errorSemaphore, 1, NULL);
+            break;
+        }
+
+        int iResult = send(connectSocket, messageToSend, (int)strlen(messageToSend) + 1, 0);
+
+        if (iResult == SOCKET_ERROR)
+        {
+            printf("send failed with error: %d\n", WSAGetLastError());
+            ReleaseSemaphore(errorSemaphore, 1, NULL);
+            break;
+        }
+
+        printf("Bytes Sent: %ld\n", iResult);
+
+        Sleep(10);
+    }
+
+    return 0;
+}
+
+DWORD WINAPI ReceiveMessageFromServer(LPVOID lpParam) {
+    while (true) {
+        int iResult = recv(connectSocket, receivedMessage, DEFAULT_BUFLEN, 0);
+        if (iResult > 0)
+        {
+            printf("\nMessage received from service: %s \n", receivedMessage);
+        }
+        else {
+            ReleaseSemaphore(errorSemaphore, 1, NULL);
+            break;
+        }
+
+        Sleep(10);
+    }
+
+    return 0;
 }
