@@ -7,31 +7,37 @@
 #define DEFAULT_PORT "27016"
 #define MAX_CLIENTS 2
 
-int curentClientCount = 0;
-
 bool InitializeWindowsSockets();
 DWORD WINAPI Requests(LPVOID lpParam);
-
-// Socket used for listening for new clients 
+DWORD WINAPI ProducerForClients(LPVOID lpParam);
+DWORD WINAPI SendToPlayer1(LPVOID lpParam);
+DWORD WINAPI SendToPlayer2(LPVOID lpParam);
+ 
 SOCKET listenSocket = INVALID_SOCKET;
-// Socket used for communication with client
+
 SOCKET acceptedSocket[MAX_CLIENTS];
 SOCKET acceptedSocketRefuse;
-// variable used to store function return value
+
+int curentClientCount = 0;
 int iResult;
-// Buffer used for storing incoming data
+
 element* rootQueueRecv;
+element* rootQueuePlayer1;
+element* rootQueuePlayer2;
 char recvbuf[DEFAULT_BUFLEN];
 
-HANDLE errorSemaphore;
+HANDLE errorSemaphore, threadSendPlayer1, threadSendPlayer2;
+DWORD threadSendPlayer1ID, threadSendPlayer2ID;
 
 int main(void) {
-    DWORD threadRequestID;
-    HANDLE threadRequest;
+    DWORD threadRequestID, threadProducerID;
+    HANDLE threadRequest, threadProducer;
 
     errorSemaphore = CreateSemaphore(NULL, 0, 1, NULL);
 
     InitQueue(&rootQueueRecv);
+    InitQueue(&rootQueuePlayer1);
+    InitQueue(&rootQueuePlayer2);
 
     for (int i = 0; i < MAX_CLIENTS; i++)
     {
@@ -108,7 +114,8 @@ int main(void) {
     printf("Server initialized, waiting for clients.\n");
 
     //thread for requests made in select function
-    threadRequest = CreateThread(NULL, 0, &Requests, NULL, 0, &threadRequestID); 
+    threadRequest = CreateThread(NULL, 0, &Requests, NULL, 0, &threadRequestID);
+    threadProducer = CreateThread(NULL, 0, &ProducerForClients, NULL, 0, &threadProducerID);
     WaitForSingleObject(errorSemaphore, INFINITE);
 
     // shutdown the connection since we're done
@@ -159,7 +166,7 @@ DWORD WINAPI Requests(LPVOID lpParam) {
     timeVal.tv_sec = 1;
     timeVal.tv_usec = 0;
     while (true) {
-        if (curentClientCount < MAX_CLIENTS)
+        if (curentClientCount < MAX_CLIENTS + 1)
             FD_SET(listenSocket, &readfds);
 
         for (int i = 0; i < curentClientCount; i++)
@@ -195,8 +202,17 @@ DWORD WINAPI Requests(LPVOID lpParam) {
                         return 1;
                     }
 
+                    iResult = send(acceptedSocketRefuse, "false", (int)strlen("false") + 1, 0);
+
+                    if (iResult == SOCKET_ERROR)
+                    {
+                        printf("send failed with error: %d\n", WSAGetLastError());
+                        closesocket(acceptedSocketRefuse);
+                        WSACleanup();
+                        return 1;
+                    }
+
                     closesocket(acceptedSocketRefuse);
-                    shutdown(acceptedSocketRefuse, SD_SEND);
 
                     printf("3. client is refused.");
 
@@ -216,7 +232,24 @@ DWORD WINAPI Requests(LPVOID lpParam) {
 
                 unsigned long mode = 1;
                 iResult = ioctlsocket(acceptedSocket[curentClientCount], FIONBIO, &mode);
+
+                //welcome message
+                iResult = send(acceptedSocket[curentClientCount], "true", (int)strlen("true") + 1, 0);
+
+                if (iResult == SOCKET_ERROR)
+                {
+                    printf("send failed with error: %d\n", WSAGetLastError());
+                    closesocket(acceptedSocket[curentClientCount]);
+                    WSACleanup();
+                    return 1;
+                }
+
                 curentClientCount++;
+
+                if (curentClientCount == 1)
+                    threadSendPlayer1 = CreateThread(NULL, 0, &SendToPlayer1, NULL, 0, &threadSendPlayer1ID);
+                if (curentClientCount == 2)
+                    threadSendPlayer2 = CreateThread(NULL, 0, &SendToPlayer2, NULL, 0, &threadSendPlayer2ID);
             }
 
             for (int i = 0; i < curentClientCount; i++) {
@@ -227,7 +260,6 @@ DWORD WINAPI Requests(LPVOID lpParam) {
                         //stavljanje u queue
                         Enqueue(recvbuf, &rootQueueRecv);
                         printf("Message received from client and qnqueued in queue\n");
-                        printf(Dequeue(&rootQueueRecv));
                     }
                     else if (iResult == 0)
                     {
@@ -252,6 +284,66 @@ DWORD WINAPI Requests(LPVOID lpParam) {
         }
 
         FD_ZERO(&readfds);
+
+        Sleep(10);
+    }
+
+    return 0;
+}
+
+DWORD WINAPI ProducerForClients(LPVOID lpParam) {
+    while (true) {
+        if (QueueCount(rootQueueRecv) != 0) {
+            printf(Dequeue(&rootQueueRecv));
+            printf("\n");
+
+            //Data queue process
+            char messageP1[32] = "Message for player 1\n";
+            char messageP2[32] = "Message for player 2\n";
+            Enqueue(messageP1, &rootQueuePlayer1);
+            Enqueue(messageP2, &rootQueuePlayer2);
+        }
+
+        Sleep(10);
+    }
+}
+
+DWORD WINAPI SendToPlayer1(LPVOID lpParam) {
+    while (true) {
+        if (QueueCount(rootQueuePlayer1) != 0) {
+            char* sendP1 = Dequeue(&rootQueuePlayer1);
+
+            iResult = send(acceptedSocket[0], sendP1, (int)strlen(sendP1) + 1, 0);
+
+            if (iResult == SOCKET_ERROR)
+            {
+                printf("send failed with error: %d\n", WSAGetLastError());
+                closesocket(acceptedSocket[0]);
+                WSACleanup();
+                return 1;
+            }
+        }
+        Sleep(10);
+    }
+
+    return 0;
+}
+
+DWORD WINAPI SendToPlayer2(LPVOID lpParam) {
+    while (true) {
+        if (QueueCount(rootQueuePlayer2) != 0) {
+            char* sendP2 = Dequeue(&rootQueuePlayer2);
+
+            iResult = send(acceptedSocket[1], sendP2, (int)strlen(sendP2) + 1, 0);
+
+            if (iResult == SOCKET_ERROR)
+            {
+                printf("send failed with error: %d\n", WSAGetLastError());
+                closesocket(acceptedSocket[1]);
+                WSACleanup();
+                return 1;
+            }
+        }
     }
 
     return 0;
