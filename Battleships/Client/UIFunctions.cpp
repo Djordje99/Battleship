@@ -2,6 +2,7 @@
 #include <stdio.h>
 #include <windows.h>
 #include <stdlib.h>
+#include <conio.h>
 
 
 void setWindowSize() {
@@ -33,6 +34,15 @@ void hidecursor() {
     CONSOLE_CURSOR_INFO info;
     info.dwSize = 1;
     info.bVisible = FALSE;
+    SetConsoleCursorInfo(consoleHandle, &info);
+}
+
+void showcursor()
+{
+    HANDLE consoleHandle = GetStdHandle(STD_OUTPUT_HANDLE);
+    CONSOLE_CURSOR_INFO info;
+    info.dwSize = 1;
+    info.bVisible = TRUE;
     SetConsoleCursorInfo(consoleHandle, &info);
 }
 
@@ -69,7 +79,59 @@ void startingMenu() {
     printf("NEW GAME AGAINST PLAYER");
 }
 
+int chooseGameType() {
+    hidecursor();
+    COORD c;
+    c.X = 59;
+    State s = UP;
+
+    char input;
+    while (true)
+    {
+        if (_kbhit()) {
+
+            // Stores the pressed key in ch
+            input = _getch();
+            if (input == 13) {
+                break;
+            }
+            else if (input == 0 || input == -32) {
+                input = _getch();
+
+                if (input == 80 && s == UP) {
+                    c.Y = 6;
+                    SetConsoleCursorPosition(GetStdHandle(STD_OUTPUT_HANDLE), c);
+                    printf("  ");
+
+                    c.Y = 7;
+                    SetConsoleCursorPosition(GetStdHandle(STD_OUTPUT_HANDLE), c);
+                    printf("->");
+                    s = DOWN;
+                    continue;
+                }
+                if (input == 72 && s == DOWN) {
+                    c.Y = 7;
+                    SetConsoleCursorPosition(GetStdHandle(STD_OUTPUT_HANDLE), c);
+                    printf("  ");
+
+                    c.Y = 6;
+                    SetConsoleCursorPosition(GetStdHandle(STD_OUTPUT_HANDLE), c);
+                    printf("->");
+                    s = UP;
+                    continue;
+                }
+
+            }
+        }
+    }
+
+    showcursor();
+    system("cls");
+    return s;
+}
+
 void gameInProgress() {
+    hidecursor();
     COORD c;
 
     c.X = 59;
@@ -80,4 +142,20 @@ void gameInProgress() {
     c.Y = 7;
     SetConsoleCursorPosition(GetStdHandle(STD_OUTPUT_HANDLE), c);
     printf("       PLEASE WAIT        ");
+
+}
+
+void pressEnterToContinue() {
+    char input;
+    while (true)
+    {
+        if (_kbhit()) {
+
+            input = _getch();
+            if (input == 13) {
+                break;
+            }
+        }
+    }
+    system("cls");
 }

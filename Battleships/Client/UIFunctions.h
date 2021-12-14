@@ -11,6 +11,10 @@ void startUpScreen();
 
 void startingMenu();
 
+int chooseGameType();
+
 void gameInProgress();
+
+void pressEnterToContinue();
 
 #endif // !UIFUNCTIONS_H

@@ -30,6 +30,8 @@ HANDLE errorSemaphore;
 
 int main(int argc, char** argv)
 {
+    setWindowSize();
+
     int iResult;
 
     DWORD threadSenderID, threadReceiverID;
@@ -75,14 +77,20 @@ int main(int argc, char** argv)
         WSACleanup();
     }
 
+    startUpScreen();
+
     //welcome message from server
     iResult = recv(connectSocket, receivedMessage, DEFAULT_BUFLEN, 0);
     if (iResult > 0)
     {
-        if(strcmp(receivedMessage, "true") == 0)
-            printf("Server accepted player.\n");
+        if (strcmp(receivedMessage, "true") == 0)
+        {
+            startingMenu();
+            chooseGameType();
+        }
         else {
-            printf("Server denide player.");
+            gameInProgress();
+            pressEnterToContinue();
             closesocket(connectSocket);
             return 5;
         }
