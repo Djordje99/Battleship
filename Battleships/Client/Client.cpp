@@ -10,6 +10,7 @@
 #include <stdio.h>
 #include <conio.h>
 #include "UIFunctions.h"
+#include "../Common/Message.h"
 
 #define DEFAULT_BUFLEN 512
 #define MESSAGE_SEND_BUFFER_SIZE 1024

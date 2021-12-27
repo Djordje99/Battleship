@@ -2,6 +2,7 @@
 #include <stdlib.h>
 #include <stdio.h>
 #include "Queue.h"
+#include "../Common/Message.h"
 
 #define DEFAULT_BUFLEN 512
 #define DEFAULT_PORT "27016"
@@ -34,6 +35,8 @@ int main(void) {
     HANDLE threadRequest, threadProducer;
 
     errorSemaphore = CreateSemaphore(NULL, 0, 1, NULL);
+
+    message msg;
 
     InitQueue(&rootQueueRecv);
     InitQueue(&rootQueuePlayer1);
