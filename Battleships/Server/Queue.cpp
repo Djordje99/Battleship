@@ -8,21 +8,21 @@
 
 CRITICAL_SECTION cs;
 
-void Enqueue(char* message, element **root) {
+void Enqueue(message* message, element **root) {
 	EnterCriticalSection(&cs);
 
 	element* temp = *root;
 
 	element* newEl = (element*)malloc(sizeof(element));
 	newEl->next = temp;
-	strcpy(newEl->value, message);
+	newEl->msg = message;
 
 	*root = newEl;
 
 	LeaveCriticalSection(&cs);
 }
 
-char* Dequeue(element **root) {
+message* Dequeue(element **root) {
 	EnterCriticalSection(&cs);
 
 	if (*root == NULL) {
@@ -39,17 +39,17 @@ char* Dequeue(element **root) {
 		temp = temp->next;
 	}
 
-	char message[1024];
+	message* ret;
 
 	if (count != 1) {
 		element* del = temp->next;
-		strcpy(message, del->value);
+		ret = del->msg;
 		free(del);
 		del = NULL;
 		temp->next = NULL;
 	}
 	else {
-		strcpy(message, temp->value);
+		ret = temp->msg;
 		free(temp);
 		temp = NULL;
 		*root = NULL;
@@ -57,7 +57,7 @@ char* Dequeue(element **root) {
 
 	LeaveCriticalSection(&cs);
 
-	return message;
+	return ret;
 }
 
 void InitQueue(element** root) {

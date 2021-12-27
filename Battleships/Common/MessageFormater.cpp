@@ -1,50 +1,28 @@
 #include "pch.h"
 #include "Message.h"
-#include <string.h>
+#include <stdio.h>
 #define _CRT_SECURE_NO_WARNINGS
+#define _CRT_SECURE_NO_DEPRECATE
+#define _CRT_NONSTDC_NO_DEPRECATE
+#define _CRT_SECURE_CPP_OVERLOAD_STANDARD_NAMES 1
+#define _CRT_SECURE_CPP_OVERLOAD_STANDARD_NAMES_COUNT 1
 
-message FormatMessage(MessageType type, ActionPlayer player, char* arg1, char* arg2) {
-	message msg{
-		msg.type = type,
-		msg.player = player,
-		strcpy(msg.argumet, arg1),
-		strcpy(msg.aditionalArgumet, arg2),
-	};
+message FormatMessageStruct(MessageType type, ActionPlayer player, char* arg1, char* arg2) {
+	message msg;
+
+	msg.type = type;
+	msg.player = player;
+	/*if(arg1 != NULL)
+		strcpy(msg.argumet, arg1);
+	if(arg2 != NULL)
+		strcpy(msg.aditionalArgumet, arg2);*/
+
 
 	return msg;
 }
 
-char* MessageToString(message msg) {
-	char* stringMsg;
-	char* msgType;
-	char* msgPlayer;
-	char* msgArg1;
-	char* msgArg2;
-
-	strcpy(msgType, "Message type is: ");
-	strcpy(msgPlayer, "Player is: ");
-	strcpy(msgArg1, "Argumet1 is: ");
-	strcpy(msgArg2, "Argumet2 is: ");
-	
-	strcat(msgType, MessageTypeToString(msg.type));
-	strcat(msgPlayer, PlayerToString(msg.player));
-	strcat(msgArg1, msg.argumet);
-	strcat(msgArg2, msg.aditionalArgumet);
-
-	strcpy(stringMsg, msgType);
-	strcat(stringMsg, "\n");
-	strcat(stringMsg, msgPlayer);
-	strcat(stringMsg, "\n");
-	strcat(stringMsg, msgArg1);
-	strcat(stringMsg, "\n");
-	strcat(stringMsg, msgArg2);
-	strcat(stringMsg, "\n");
-
-	return stringMsg;
-}
-
 char* MessageTypeToString(MessageType type) {
-	char* typeString;
+	char* typeString = 0;
 
 	switch (type)
 	{
@@ -84,7 +62,7 @@ char* MessageTypeToString(MessageType type) {
 }
 
 char* PlayerToString(ActionPlayer player) {
-	char* playerString;
+	char* playerString = 0;
 
 	switch (player)
 	{
@@ -100,4 +78,33 @@ char* PlayerToString(ActionPlayer player) {
 	}
 
 	return playerString;
+}
+
+char* MessageToString(message msg) {
+	char* stringMsg = 0;
+	char* msgType = 0;
+	char* msgPlayer = 0;
+	char* msgArg1 = 0;
+	char* msgArg2 = 0;
+
+	strcpy(msgType, "Message type is: ");
+	strcpy(msgPlayer, "Player is: ");
+	strcpy(msgArg1, "Argumet1 is: ");
+	strcpy(msgArg2, "Argumet2 is: ");
+	
+	strcat(msgType, MessageTypeToString(msg.type));
+	strcat(msgPlayer, PlayerToString(msg.player));
+	//strcat(msgArg1, msg.argumet);
+	//strcat(msgArg2, msg.aditionalArgumet);
+
+	strcpy(stringMsg, msgType);
+	strcpy(stringMsg, "\n");
+	strcpy(stringMsg, msgPlayer);
+	strcpy(stringMsg, "\n");
+	strcpy(stringMsg, msgArg1);
+	strcpy(stringMsg, "\n");
+	strcpy(stringMsg, msgArg2);
+	strcpy(stringMsg, "\n");
+
+	return stringMsg;
 }

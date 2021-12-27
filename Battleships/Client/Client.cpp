@@ -11,11 +11,15 @@
 #include <conio.h>
 #include "UIFunctions.h"
 #include "../Common/Message.h"
+#include "../Common/MessageFormater.cpp"
 
 #define DEFAULT_BUFLEN 512
 #define MESSAGE_SEND_BUFFER_SIZE 1024
-#define MESSAGE_RECIEVE_BUFFER_SIZE 8
+#define MESSAGE_RECIEVE_BUFFER_SIZE 512
 #define DEFAULT_PORT 27016
+
+// define needed for window size
+#define _WIN32_WINNT 0x0500
 
 // Initializes WinSock2 library
 // Returns true if succeeded, false otherwise.
@@ -29,8 +33,14 @@ char receivedMessage[MESSAGE_RECIEVE_BUFFER_SIZE] = "";
 SOCKET connectSocket = INVALID_SOCKET;
 HANDLE errorSemaphore;
 
+char board[10][10];
+
 int main(int argc, char** argv)
 {
+    // window resize block
+    HWND consoleWindow = GetConsoleWindow();
+    SetWindowLong(consoleWindow, GWL_STYLE, GetWindowLong(consoleWindow, GWL_STYLE) & ~WS_MAXIMIZEBOX & ~WS_SIZEBOX);
+
     setWindowSize();
 
     int iResult;
@@ -87,7 +97,50 @@ int main(int argc, char** argv)
         if (strcmp(receivedMessage, "true") == 0)
         {
             startingMenu();
-            chooseGameType();
+            int gameType = chooseGameType();
+            //message msg = FormatMessageStruct(CHOOSE_GAME, NONE, (char*)gameType, NULL);
+            message msg{
+                msg.type = CHOOSE_GAME,
+                msg.player = NONE,
+                //msg.argumet = htonl(gameType),
+                msg.argument[0] = 0,
+                //msg.aditionalArgumet[0] = 0,
+            };
+            sprintf(msg.argument, "%d", gameType);
+            int iResult = send(connectSocket, (char*)&msg, sizeof(msg), 0);
+            if (iResult == SOCKET_ERROR)
+            {
+                printf("send failed with error: %d\n", WSAGetLastError());
+                pressEnterToContinue();
+                closesocket(connectSocket);
+                return 5;
+            }
+
+            iResult = recv(connectSocket, receivedMessage, DEFAULT_BUFLEN, 0);
+            if (iResult > 0)
+            {
+                receivedMessage[iResult] = '\0';
+                msg = *(message*)receivedMessage;
+                if (msg.type == READY)
+                    tableInitialization(board[0]);  // nakon sto se vrati iz ove funkcije board je popunjen jedinicama i nulama
+                                                    // moze da se doradi funkcija da vraca nesto sto olaksava pravljenje poruka ka
+                                                    // serveru ali je preporuka ne otvarati pandorinu kutiju
+                else
+                {
+                    gameInProgress();
+                    pressEnterToContinue();
+                    closesocket(connectSocket);
+                    return 5;
+                }
+                _getch();
+            }
+            else
+            {
+                gameInProgress();
+                pressEnterToContinue();
+                closesocket(connectSocket);
+                return 5;
+            }
         }
         else {
             gameInProgress();

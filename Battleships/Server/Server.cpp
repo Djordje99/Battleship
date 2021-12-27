@@ -13,6 +13,8 @@ DWORD WINAPI Requests(LPVOID lpParam);
 DWORD WINAPI ProducerForClients(LPVOID lpParam);
 DWORD WINAPI SendToPlayer1(LPVOID lpParam);
 DWORD WINAPI SendToPlayer2(LPVOID lpParam);
+DWORD WINAPI RecvFromPlayer1(LPVOID lpParam);
+DWORD WINAPI RecvFromPlayer2(LPVOID lpParam);
  
 SOCKET listenSocket = INVALID_SOCKET;
 
@@ -29,6 +31,11 @@ char recvbuf[DEFAULT_BUFLEN];
 
 HANDLE errorSemaphore, threadSendPlayer1, threadSendPlayer2;
 DWORD threadSendPlayer1ID, threadSendPlayer2ID;
+HANDLE threadRecvPlayer1, threadRecvPlayer2;
+DWORD threadRecvPlayer1ID, threadRecvPlayer2ID;
+
+bool gameInProgress = false;
+bool gameInitializationInProgress = false;
 
 int main(void) {
     DWORD threadRequestID, threadProducerID;
@@ -250,11 +257,18 @@ DWORD WINAPI Requests(LPVOID lpParam) {
                 curentClientCount++;
 
                 if (curentClientCount == 1)
+                {
                     threadSendPlayer1 = CreateThread(NULL, 0, &SendToPlayer1, NULL, 0, &threadSendPlayer1ID);
+                    threadRecvPlayer1 = CreateThread(NULL, 0, &RecvFromPlayer1, NULL, 0, &threadRecvPlayer1ID);
+                }
                 if (curentClientCount == 2)
+                {
                     threadSendPlayer2 = CreateThread(NULL, 0, &SendToPlayer2, NULL, 0, &threadSendPlayer2ID);
+                    threadRecvPlayer2 = CreateThread(NULL, 0, &RecvFromPlayer2, NULL, 0, &threadRecvPlayer2ID);
+                }
             }
 
+            /*
             for (int i = 0; i < curentClientCount; i++) {
                 if (FD_ISSET(acceptedSocket[i], &readfds)) {
                     iResult = recv(acceptedSocket[i], recvbuf, DEFAULT_BUFLEN, 0);
@@ -284,6 +298,7 @@ DWORD WINAPI Requests(LPVOID lpParam) {
                     }
                 }
             }
+            */
         }
 
         FD_ZERO(&readfds);
@@ -297,14 +312,12 @@ DWORD WINAPI Requests(LPVOID lpParam) {
 DWORD WINAPI ProducerForClients(LPVOID lpParam) {
     while (true) {
         if (QueueCount(rootQueueRecv) != 0) {
-            printf(Dequeue(&rootQueueRecv));
-            printf("\n");
+            message* msg = Dequeue(&rootQueueRecv);
 
-            //Data queue process
-            char messageP1[32] = "Message for player 1\n";
-            char messageP2[32] = "Message for player 2\n";
-            Enqueue(messageP1, &rootQueuePlayer1);
-            Enqueue(messageP2, &rootQueuePlayer2);
+            if(msg->player == FIRST)
+                Enqueue(msg, &rootQueuePlayer1);
+            if(msg->player == SECOND)
+                Enqueue(msg, &rootQueuePlayer2);
         }
 
         Sleep(10);
@@ -314,9 +327,9 @@ DWORD WINAPI ProducerForClients(LPVOID lpParam) {
 DWORD WINAPI SendToPlayer1(LPVOID lpParam) {
     while (true) {
         if (QueueCount(rootQueuePlayer1) != 0) {
-            char* sendP1 = Dequeue(&rootQueuePlayer1);
+            message sendP1 = *Dequeue(&rootQueuePlayer1);
 
-            iResult = send(acceptedSocket[0], sendP1, (int)strlen(sendP1) + 1, 0);
+            iResult = send(acceptedSocket[0], (char*)&sendP1, sizeof(sendP1), 0);
 
             if (iResult == SOCKET_ERROR)
             {
@@ -335,9 +348,9 @@ DWORD WINAPI SendToPlayer1(LPVOID lpParam) {
 DWORD WINAPI SendToPlayer2(LPVOID lpParam) {
     while (true) {
         if (QueueCount(rootQueuePlayer2) != 0) {
-            char* sendP2 = Dequeue(&rootQueuePlayer2);
+            message sendP2 = *Dequeue(&rootQueuePlayer2);
 
-            iResult = send(acceptedSocket[1], sendP2, (int)strlen(sendP2) + 1, 0);
+            iResult = send(acceptedSocket[1], (char*)&sendP2, sizeof(sendP2), 0);
 
             if (iResult == SOCKET_ERROR)
             {
@@ -347,6 +360,231 @@ DWORD WINAPI SendToPlayer2(LPVOID lpParam) {
                 return 1;
             }
         }
+    }
+
+    return 0;
+}
+
+DWORD WINAPI RecvFromPlayer1(LPVOID lpParam) {
+    message* recvmsg;
+    message* msgToSend;
+    fd_set readfds;
+    FD_ZERO(&readfds);
+
+    timeval timeVal;
+    timeVal.tv_sec = 1;
+    timeVal.tv_usec = 0;
+    while (true) {
+        FD_SET(acceptedSocket[0], &readfds);
+
+        int result = select(0, &readfds, NULL, NULL, &timeVal);
+
+        if (result == 0) {
+            // vreme za cekanje je isteklo
+            Sleep(10);
+            continue;
+        }
+        else if (result == SOCKET_ERROR) {
+            //desila se greska prilikom poziva funkcije
+            ReleaseSemaphore(errorSemaphore, 1, NULL);
+            break;
+        }
+        else
+        {
+            if (FD_ISSET(acceptedSocket[0], &readfds)) {
+                iResult = recv(acceptedSocket[0], recvbuf, DEFAULT_BUFLEN, 0);
+                if (iResult > 0)
+                {
+                    recvbuf[iResult] = '\0';
+                    recvmsg = (message*)recvbuf;
+
+                    if (recvmsg->type == CHOOSE_GAME)
+                    {
+                        if (gameInProgress == false)
+                        {
+                            if (strcmp(recvmsg->argument, "1") == 0 && gameInitializationInProgress == false)
+                            //if (ntohl(recvmsg->argumet) == 1 && gameInitializationInProgress == false)
+                            {
+                                gameInProgress = true;
+                                msgToSend = (message*)malloc(sizeof(message));
+                                msgToSend->type = READY;
+                                msgToSend->player = FIRST;
+
+                                Enqueue(msgToSend, &rootQueueRecv);
+
+                            }
+                            else if (strcmp(recvmsg->argument, "2") == 0)
+                            //if (ntohl(recvmsg->argumet) == 2)
+                            {
+                                msgToSend = (message*)malloc(sizeof(message));
+                                if (gameInitializationInProgress == false)
+                                    gameInitializationInProgress = true;
+                                else
+                                    gameInProgress = true;
+                                msgToSend->player = FIRST;
+                                msgToSend->type = READY;
+                                Enqueue(msgToSend, &rootQueueRecv);
+                            }
+                            else {
+                                msgToSend = (message*)malloc(sizeof(message));
+                                msgToSend->type = BUSY;
+                                msgToSend->player = FIRST;
+                                Enqueue(msgToSend, &rootQueueRecv);
+                            }
+                        }
+                        else
+                        {
+                            msgToSend = (message*)malloc(sizeof(message));
+                            msgToSend->type = BUSY;
+                            msgToSend->player = FIRST;
+                            Enqueue(msgToSend, &rootQueueRecv);
+                        }
+                        printf("Message received from client and queued in queue\n");
+                    }
+                    else
+                    {
+                        //stavljanje u queue
+                        Enqueue(recvmsg, &rootQueueRecv);
+                        printf("Message received from client and queued in queue\n");
+                    }
+                }
+                else if (iResult == 0)
+                {
+                    // connection was closed gracefully
+                    printf("Connection with client closed.\n");
+                    closesocket(acceptedSocket[0]);
+
+                    if (acceptedSocket[1] != INVALID_SOCKET) {
+                        acceptedSocket[0] = acceptedSocket[1];
+                        acceptedSocket[1] = INVALID_SOCKET;
+                    }
+                    curentClientCount--;
+                }
+                else
+                {
+                    // there was an error during recv
+                    printf("recv failed with error: %d\n", WSAGetLastError());
+                    closesocket(acceptedSocket[0]);
+                    if (acceptedSocket[1] != INVALID_SOCKET) {
+                        acceptedSocket[0] = acceptedSocket[1];
+                        acceptedSocket[1] = INVALID_SOCKET;
+                    }
+                    curentClientCount--;
+                    break;
+                }
+            }
+            Sleep(10);
+
+        }
+        FD_ZERO(&readfds);
+    }
+
+    return 0;
+}
+
+DWORD WINAPI RecvFromPlayer2(LPVOID lpParam) {
+    message* recvmsg;
+    message* msgToSend;
+    fd_set readfds;
+    FD_ZERO(&readfds);
+
+    timeval timeVal;
+    timeVal.tv_sec = 1;
+    timeVal.tv_usec = 0;
+    while (true) {
+        FD_SET(acceptedSocket[1], &readfds);
+
+        int result = select(0, &readfds, NULL, NULL, &timeVal);
+
+        if (result == 0) {
+            // vreme za cekanje je isteklo
+            Sleep(10);
+            continue;
+        }
+        else if (result == SOCKET_ERROR) {
+            //desila se greska prilikom poziva funkcije
+            ReleaseSemaphore(errorSemaphore, 1, NULL);
+            break;
+        }
+        else
+        {
+            if (FD_ISSET(acceptedSocket[1], &readfds)) {
+                iResult = recv(acceptedSocket[1], recvbuf, DEFAULT_BUFLEN, 0);
+                if (iResult > 0)
+                {
+                    recvbuf[iResult] = '\0';
+                    recvmsg = (message*)recvbuf;
+
+                    if (recvmsg->type == CHOOSE_GAME)
+                    {
+                        if (gameInProgress == false)
+                        {
+                            if (strcmp(recvmsg->argument, "1") == 0 && gameInitializationInProgress == false)
+                            //if (ntohl(recvmsg->argument) == 1 && gameInitializationInProgress == false)
+                            {
+                                gameInProgress = true;
+                                msgToSend = (message*)malloc(sizeof(message));
+                                msgToSend->type = READY;
+                                msgToSend->player = SECOND;
+
+                                Enqueue(msgToSend, &rootQueueRecv);
+
+                            }
+                            else if (strcmp(recvmsg->argument, "2") == 0)
+                            //if (ntohl(recvmsg->argument) == 2)
+                            {
+                                msgToSend = (message*)malloc(sizeof(message));
+                                if (gameInitializationInProgress == false)
+                                    gameInitializationInProgress = true;
+                                else
+                                    gameInProgress = true;
+                                msgToSend->player = SECOND;
+                                msgToSend->type = READY;
+                                Enqueue(msgToSend, &rootQueueRecv);
+                            }
+                            else {
+                                msgToSend = (message*)malloc(sizeof(message));
+                                msgToSend->type = BUSY;
+                                msgToSend->player = SECOND;
+                                Enqueue(msgToSend, &rootQueueRecv);
+                            }
+                        }
+                        else
+                        {
+                            msgToSend = (message*)malloc(sizeof(message));
+                            msgToSend->type = BUSY;
+                            msgToSend->player = SECOND;
+                            Enqueue(msgToSend, &rootQueueRecv);
+                        }
+                        printf("Message received from client and queued in queue\n");
+                    }
+                    else
+                    {
+                        //stavljanje u queue
+                        Enqueue(recvmsg, &rootQueueRecv);
+                        printf("Message received from client and queued in queue\n");
+                    }
+                }
+                else if (iResult == 0)
+                {
+                    // connection was closed gracefully
+                    printf("Connection with client closed.\n");
+                    closesocket(acceptedSocket[1]);
+                    curentClientCount--;
+                }
+                else
+                {
+                    // there was an error during recv
+                    printf("recv failed with error: %d\n", WSAGetLastError());
+                    closesocket(acceptedSocket[1]);
+                    curentClientCount--;
+                    break;
+                }
+            }
+            Sleep(10);
+
+        }
+        FD_ZERO(&readfds);
     }
 
     return 0;

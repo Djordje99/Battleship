@@ -15,6 +15,7 @@ enum MessageType {
 };
 
 enum ActionPlayer {
+	NONE = 0,
 	FIRST = 1,
 	SECOND = 2
 };
@@ -22,8 +23,9 @@ enum ActionPlayer {
 typedef struct MESSAGE_TCP {
 	MessageType type;
 	ActionPlayer player;
-	char* argumet;
-	char* aditionalArgumet;
+	char argument[4];
+	//int argument;
+	//char aditionalArgumet[4];
 }message;
 
 #endif

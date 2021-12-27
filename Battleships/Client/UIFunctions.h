@@ -17,4 +17,8 @@ void gameInProgress();
 
 void pressEnterToContinue();
 
+void printElement(char printEl);
+
+void tableInitialization(char* table);
+
 #endif // !UIFUNCTIONS_H
