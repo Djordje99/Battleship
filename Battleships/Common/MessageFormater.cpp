@@ -1,13 +1,14 @@
 #include "pch.h"
 #include "Message.h"
 #include <stdio.h>
+
 #define _CRT_SECURE_NO_WARNINGS
 #define _CRT_SECURE_NO_DEPRECATE
 #define _CRT_NONSTDC_NO_DEPRECATE
 #define _CRT_SECURE_CPP_OVERLOAD_STANDARD_NAMES 1
 #define _CRT_SECURE_CPP_OVERLOAD_STANDARD_NAMES_COUNT 1
 
-message FormatMessageStruct(MessageType type, ActionPlayer player, char* arg1, char* arg2) {
+message FormatMessageStruct(MessageType type, ActionPlayer player, char arg1, char arg2) {
 	message msg;
 
 	msg.type = type;
@@ -16,7 +17,9 @@ message FormatMessageStruct(MessageType type, ActionPlayer player, char* arg1, c
 		strcpy(msg.argumet, arg1);
 	if(arg2 != NULL)
 		strcpy(msg.aditionalArgumet, arg2);*/
-
+	msg.argument[0] = arg1;
+	msg.argument[1] = arg2;
+	msg.argument[2] = '/0';
 
 	return msg;
 }

@@ -34,6 +34,8 @@ SOCKET connectSocket = INVALID_SOCKET;
 HANDLE errorSemaphore;
 
 char board[10][10];
+ActionPlayer player;
+bool isMyTurn;
 
 int main(int argc, char** argv)
 {
@@ -121,6 +123,13 @@ int main(int argc, char** argv)
             {
                 receivedMessage[iResult] = '\0';
                 msg = *(message*)receivedMessage;
+                player = msg.player;
+
+                if (player == FIRST)
+                    isMyTurn = true;
+                else
+                    isMyTurn = false;
+
                 if (msg.type == READY)
                     tableInitialization(board[0]);  // nakon sto se vrati iz ove funkcije board je popunjen jedinicama i nulama
                                                     // moze da se doradi funkcija da vraca nesto sto olaksava pravljenje poruka ka
@@ -150,6 +159,31 @@ int main(int argc, char** argv)
         }
     }
 
+    //send to server matrix
+    for (int i = 0; i < 10; i++)
+    {
+        for (int j = 0; j < 10; j++)
+        {   
+            char feld = board[i][j];
+            if(feld == '\x1') {
+                message msg = FormatMessageStruct(PLACE_BOAT, player, i, j);
+
+                int iResult = send(connectSocket, (char*)&msg, sizeof(msg), 0);
+
+                if (iResult == SOCKET_ERROR)
+                {
+                    printf("send failed with error: %d\n", WSAGetLastError());
+                    return -1;
+                }
+
+                printf("Bytes Sent: %ld\n", iResult);
+
+                Sleep(20);
+            }
+        }
+    }
+
+
     //thread sender
     threadSender = CreateThread(NULL, 0, &SendMessageToServer, NULL, 0, &threadSenderID);
     threadReceiver = CreateThread(NULL, 0, &ReceiveMessageFromServer, NULL, 0, &threadReceiverID);
@@ -176,24 +210,30 @@ bool InitializeWindowsSockets()
 
 DWORD WINAPI SendMessageToServer(LPVOID lpParam) {
     while (true) {
-        printf("Type message to server: ");
-        scanf("%s", messageToSend);
+        if (isMyTurn) {
+            printf("Type cordinate to attack enemy boat; format [0-9, 0-9]: ");
+            scanf("%s", messageToSend);
 
-        if (strcmp(messageToSend, "exit") == 0) {
-            ReleaseSemaphore(errorSemaphore, 1, NULL);
-            break;
+            if (strcmp(messageToSend, "exit") == 0) {
+                ReleaseSemaphore(errorSemaphore, 1, NULL);
+                break;
+            }
+
+            message msg = FormatMessageStruct(AIM_BOAT, player, atoi(&messageToSend[0]), atoi(&messageToSend[2]));
+
+            int iResult = send(connectSocket, (char*)&msg, sizeof(msg), 0);
+
+            if (iResult == SOCKET_ERROR)
+            {
+                printf("send failed with error: %d\n", WSAGetLastError());
+                ReleaseSemaphore(errorSemaphore, 1, NULL);
+                break;
+            }
+
+            printf("Bytes Sent: %ld\n", iResult);
         }
-
-        int iResult = send(connectSocket, messageToSend, (int)strlen(messageToSend) + 1, 0);
-
-        if (iResult == SOCKET_ERROR)
-        {
-            printf("send failed with error: %d\n", WSAGetLastError());
-            ReleaseSemaphore(errorSemaphore, 1, NULL);
-            break;
-        }
-
-        printf("Bytes Sent: %ld\n", iResult);
+       
+        isMyTurn = false;
 
         Sleep(10);
     }
@@ -204,9 +244,29 @@ DWORD WINAPI SendMessageToServer(LPVOID lpParam) {
 DWORD WINAPI ReceiveMessageFromServer(LPVOID lpParam) {
     while (true) {
         int iResult = recv(connectSocket, receivedMessage, DEFAULT_BUFLEN, 0);
+
+        receivedMessage[iResult] = '\0';
+        message* recvmsg = (message*)receivedMessage;
+
         if (iResult > 0)
         {
-            printf("\nMessage received from service: %s \n", receivedMessage);
+            printf("\nMessage received from service\n");
+
+            if (recvmsg->player != player && recvmsg->type == MISS)
+                isMyTurn = true;
+            else if(recvmsg->player == player && recvmsg->type == HIT)
+                isMyTurn = true;
+            else if (recvmsg->player == player && recvmsg->type == VICTORY) {
+                isMyTurn = false;
+                printf("VICTORY!");
+            }
+            else if (recvmsg->player == player && recvmsg->type == DEFEAT) {
+                isMyTurn = false;
+                printf("DEFEAT :(");
+            }
+            else
+                isMyTurn = false;
+
         }
         else {
             ReleaseSemaphore(errorSemaphore, 1, NULL);

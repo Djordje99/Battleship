@@ -21,9 +21,15 @@
     <ClCompile Include="Queue.cpp">
       <Filter>Resource Files</Filter>
     </ClCompile>
+    <ClCompile Include="GameHelper.cpp">
+      <Filter>Resource Files</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="Queue.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="GameHelper.h">
       <Filter>Header Files</Filter>
     </ClInclude>
   </ItemGroup>

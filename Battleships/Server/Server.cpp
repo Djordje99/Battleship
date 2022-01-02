@@ -1,8 +1,14 @@
+#define WIN32_LEAN_AND_MEAN
+#define _WINSOCK_DEPRECATED_NO_WARNINGS
+#define _CRT_SECURE_NO_WARNINGS
+
 #include <ws2tcpip.h>
 #include <stdlib.h>
 #include <stdio.h>
 #include "Queue.h"
 #include "../Common/Message.h"
+#include "../Common/MessageFormater.cpp"
+#include "GameHelper.h"
 
 #define DEFAULT_BUFLEN 512
 #define DEFAULT_PORT "27016"
@@ -37,13 +43,14 @@ DWORD threadRecvPlayer1ID, threadRecvPlayer2ID;
 bool gameInProgress = false;
 bool gameInitializationInProgress = false;
 
+char boardPlayer1[10][10];
+char boardPlayer2[10][10];
+
 int main(void) {
     DWORD threadRequestID, threadProducerID;
     HANDLE threadRequest, threadProducer;
 
     errorSemaphore = CreateSemaphore(NULL, 0, 1, NULL);
-
-    message msg;
 
     InitQueue(&rootQueueRecv);
     InitQueue(&rootQueuePlayer1);
@@ -179,10 +186,10 @@ DWORD WINAPI Requests(LPVOID lpParam) {
         if (curentClientCount < MAX_CLIENTS + 1)
             FD_SET(listenSocket, &readfds);
 
-        for (int i = 0; i < curentClientCount; i++)
-        {
-            FD_SET(acceptedSocket[i], &readfds);
-        }
+        //for (int i = 0; i < curentClientCount; i++)
+        //{
+        //    FD_SET(acceptedSocket[i], &readfds);
+        //}
 
         int result = select(0, &readfds, NULL, NULL, &timeVal);
 
@@ -267,38 +274,6 @@ DWORD WINAPI Requests(LPVOID lpParam) {
                     threadRecvPlayer2 = CreateThread(NULL, 0, &RecvFromPlayer2, NULL, 0, &threadRecvPlayer2ID);
                 }
             }
-
-            /*
-            for (int i = 0; i < curentClientCount; i++) {
-                if (FD_ISSET(acceptedSocket[i], &readfds)) {
-                    iResult = recv(acceptedSocket[i], recvbuf, DEFAULT_BUFLEN, 0);
-                    if (iResult > 0)
-                    {
-                        //stavljanje u queue
-                        Enqueue(recvbuf, &rootQueueRecv);
-                        printf("Message received from client and qnqueued in queue\n");
-                    }
-                    else if (iResult == 0)
-                    {
-                        // connection was closed gracefully
-                        printf("Connection with client closed.\n");
-                        closesocket(acceptedSocket[i]);
-
-                        if (i == 0 && acceptedSocket[1] != INVALID_SOCKET) {
-                            acceptedSocket[0] = acceptedSocket[1];
-                            acceptedSocket[1] = INVALID_SOCKET;
-                        }
-                        curentClientCount--;
-                    }
-                    else
-                    {
-                        // there was an error during recv
-                        printf("recv failed with error: %d\n", WSAGetLastError());
-                        closesocket(acceptedSocket[i]);
-                    }
-                }
-            }
-            */
         }
 
         FD_ZERO(&readfds);
@@ -313,16 +288,103 @@ DWORD WINAPI ProducerForClients(LPVOID lpParam) {
     while (true) {
         if (QueueCount(rootQueueRecv) != 0) {
             message* msg = Dequeue(&rootQueueRecv);
+            int arg1;
+            int arg2;
 
-            if(msg->player == FIRST)
-                Enqueue(msg, &rootQueuePlayer1);
-            if(msg->player == SECOND)
-                Enqueue(msg, &rootQueuePlayer2);
+            //PLACE_BOAT init switch
+            switch (msg->type)
+            {
+                case PLACE_BOAT:
+                {
+                    arg1 = msg->argument[0];
+                    arg2 = msg->argument[1];
+
+                    if (msg->player == FIRST)
+                        boardPlayer1[arg1][arg2] = 1;
+                    if (msg->player == SECOND)
+                        boardPlayer2[arg1][arg2] = 1;
+                    break;
+                }
+
+                case AIM_BOAT:
+                {
+                    arg1 = msg->argument[0];
+                    arg2 = msg->argument[1];
+                    bool hit = false;
+
+                    if (msg->player == FIRST) {
+                        hit = boardPlayer2[arg1][arg2] == 1 ? true : false;
+
+                        if (hit) {
+                            boardPlayer2[arg1][arg2] = 'x';
+                            message msgHit = FormatMessageStruct(HIT, FIRST, arg1, arg2);
+                            if (GameOver(boardPlayer2)) {
+                                message msgV = FormatMessageStruct(VICTORY, FIRST, arg1, arg2);
+                                message msgD = FormatMessageStruct(DEFEAT, SECOND, arg1, arg2);
+                                Enqueue(&msgV, &rootQueuePlayer1);
+                                Enqueue(&msgD, &rootQueuePlayer2);
+                            }
+                            else {
+                                Enqueue(&msgHit, &rootQueuePlayer1);
+                                Enqueue(&msgHit, &rootQueuePlayer2);
+                            }
+                        }
+                        else {
+                            message msgMiss = FormatMessageStruct(MISS, FIRST, arg1, arg2);
+                            Enqueue(&msgMiss, &rootQueuePlayer1);
+                            Enqueue(&msgMiss, &rootQueuePlayer2);
+                        }
+                    }
+
+                    if (msg->player == SECOND) {
+                        hit = boardPlayer1[arg1][arg2] == 1 ? true : false;
+
+                        if (hit) {
+                            boardPlayer1[arg1][arg2] = 'x';
+                            message msgHit = FormatMessageStruct(HIT, SECOND, arg1, arg2);
+                            if (GameOver(boardPlayer1)) {
+                                message msgV = FormatMessageStruct(VICTORY, SECOND, arg1, arg2);
+                                message msgD = FormatMessageStruct(DEFEAT, FIRST, arg1, arg2);
+                                Enqueue(&msgD, &rootQueuePlayer1);
+                                Enqueue(&msgV, &rootQueuePlayer2);
+                            }
+                            else {
+                                Enqueue(&msgHit, &rootQueuePlayer1);
+                                Enqueue(&msgHit, &rootQueuePlayer2);
+                            }
+                        }
+                        else {
+                            message msgMiss = FormatMessageStruct(MISS, SECOND, arg1, arg2);
+                            Enqueue(&msgMiss, &rootQueuePlayer1);
+                            Enqueue(&msgMiss, &rootQueuePlayer2);
+                        }
+                    }
+                    break;
+                }               
+                case READY:
+                {
+                    if (msg->player == FIRST)
+                        Enqueue(msg, &rootQueuePlayer1);
+                    if (msg->player == SECOND)
+                        Enqueue(msg, &rootQueuePlayer2);
+                    break;
+                }
+                case BUSY:
+                {
+                    if (msg->player == FIRST)
+                        Enqueue(msg, &rootQueuePlayer1);
+                    if (msg->player == SECOND)
+                        Enqueue(msg, &rootQueuePlayer2);
+                    break;
+                }
+            }
         }
 
         Sleep(10);
     }
 }
+
+#pragma region SendToPlayer
 
 DWORD WINAPI SendToPlayer1(LPVOID lpParam) {
     while (true) {
@@ -365,6 +427,10 @@ DWORD WINAPI SendToPlayer2(LPVOID lpParam) {
     return 0;
 }
 
+#pragma endregion
+
+#pragma region RecieveFromPlayer
+
 DWORD WINAPI RecvFromPlayer1(LPVOID lpParam) {
     message* recvmsg;
     message* msgToSend;
@@ -381,7 +447,7 @@ DWORD WINAPI RecvFromPlayer1(LPVOID lpParam) {
 
         if (result == 0) {
             // vreme za cekanje je isteklo
-            Sleep(10);
+            //Sleep(10);
             continue;
         }
         else if (result == SOCKET_ERROR) {
@@ -403,7 +469,7 @@ DWORD WINAPI RecvFromPlayer1(LPVOID lpParam) {
                         if (gameInProgress == false)
                         {
                             if (strcmp(recvmsg->argument, "1") == 0 && gameInitializationInProgress == false)
-                            //if (ntohl(recvmsg->argumet) == 1 && gameInitializationInProgress == false)
+                                //if (ntohl(recvmsg->argumet) == 1 && gameInitializationInProgress == false)
                             {
                                 gameInProgress = true;
                                 msgToSend = (message*)malloc(sizeof(message));
@@ -414,7 +480,7 @@ DWORD WINAPI RecvFromPlayer1(LPVOID lpParam) {
 
                             }
                             else if (strcmp(recvmsg->argument, "2") == 0)
-                            //if (ntohl(recvmsg->argumet) == 2)
+                                //if (ntohl(recvmsg->argumet) == 2)
                             {
                                 msgToSend = (message*)malloc(sizeof(message));
                                 if (gameInitializationInProgress == false)
@@ -445,7 +511,7 @@ DWORD WINAPI RecvFromPlayer1(LPVOID lpParam) {
                     {
                         //stavljanje u queue
                         Enqueue(recvmsg, &rootQueueRecv);
-                        printf("Message received from client and queued in queue\n");
+                        printf("Message received from client and queued in queue!\n");
                     }
                 }
                 else if (iResult == 0)
@@ -520,7 +586,7 @@ DWORD WINAPI RecvFromPlayer2(LPVOID lpParam) {
                         if (gameInProgress == false)
                         {
                             if (strcmp(recvmsg->argument, "1") == 0 && gameInitializationInProgress == false)
-                            //if (ntohl(recvmsg->argument) == 1 && gameInitializationInProgress == false)
+                                //if (ntohl(recvmsg->argument) == 1 && gameInitializationInProgress == false)
                             {
                                 gameInProgress = true;
                                 msgToSend = (message*)malloc(sizeof(message));
@@ -531,7 +597,7 @@ DWORD WINAPI RecvFromPlayer2(LPVOID lpParam) {
 
                             }
                             else if (strcmp(recvmsg->argument, "2") == 0)
-                            //if (ntohl(recvmsg->argument) == 2)
+                                //if (ntohl(recvmsg->argument) == 2)
                             {
                                 msgToSend = (message*)malloc(sizeof(message));
                                 if (gameInitializationInProgress == false)
@@ -589,3 +655,5 @@ DWORD WINAPI RecvFromPlayer2(LPVOID lpParam) {
 
     return 0;
 }
+
+#pragma endregion
