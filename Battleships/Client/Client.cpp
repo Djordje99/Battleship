@@ -139,11 +139,7 @@ int main(int argc, char** argv)
                     isMyTurn = false;
 
                 if (msg.type == READY) {
-                    // nakon sto se vrati iz ove funkcije board je popunjen jedinicama i nulama
-                    // moze da se doradi funkcija da vraca nesto sto olaksava pravljenje poruka ka
-                    // serveru ali je preporuka ne otvarati pandorinu kutiju
                     tableInitialization(board[0]);
-                    _getch();
                 }  
                 else if (msg.type == RECONNECT) {
                     printf("Reconnectig...\n");
@@ -155,8 +151,6 @@ int main(int argc, char** argv)
                     pressEnterToContinue();
                     closesocket(connectSocket);
                     return 5;
-
-                    _getch();
                 }
             }
             else
@@ -177,6 +171,7 @@ int main(int argc, char** argv)
 
     //send to server matrix
     if (!reconnected) {
+        waiting();
         for (int i = 0; i < 10; i++)
         {
             for (int j = 0; j < 10; j++)
@@ -199,6 +194,29 @@ int main(int argc, char** argv)
                     Sleep(20);
                 }
             }
+        }
+
+        iResult = recv(connectSocket, receivedMessage, DEFAULT_BUFLEN, 0);
+        if (iResult > 0)
+        {
+            receivedMessage[iResult] = '\0';
+            message msg = *(message*)receivedMessage;
+
+            if (msg.type != PLAY) {
+                system("cls");
+                printf("Something went wrong, press enter to exit\n");
+                pressEnterToContinue();
+                closesocket(connectSocket);
+                return 5;
+            }
+        }
+        else
+        {
+            system("cls");
+            printf("Something went wrong, press enter to exit\n");
+            pressEnterToContinue();
+            closesocket(connectSocket);
+            return 5;
         }
     }
 
@@ -255,19 +273,52 @@ bool InitializeWindowsSockets()
 
 DWORD WINAPI SendMessageToServer(LPVOID lpParam) {
     bool set = false;
+    bool stop = false;
     while (true) {
         if (isMyTurn) {
             /*
             printf("Type cordinate to attack enemy boat; format [0-9, 0-9]: ");
             scanf("%s", messageToSend);
             */
-            memset(userInput, 0, strlen(userInput));
+            memset(userInput, 0, 4);
             set = false;
             counter = 30;
             myTurn();
             resumeCounterThread(hCounterThread);
-            userInputFunction(userInput);
+            while (true)
+            {
+                userInputFunction(userInput, &counter);
+                if (counter == 0) {
+                    stop = true;
+                    break;
+                }
+                else {
+                    if (strlen(userInput) == 2) {
+                        if (opponentBoard[userInput[1] - 49][userInput[0] - 65] != 0) {
+                            tryAgain(userInput);
+                            memset(userInput, 0, 4);
+                            continue;
+                        }
+                        else {
+                            break;
+                        }
+                    }
+                    else {
+                        if (opponentBoard[9][userInput[0] - 65] != 0) {
+                            tryAgain(userInput);
+                            memset(userInput, 0, 4);
+                            continue;
+                        }
+                        else {
+                            break;
+                        }
+                    }
+                }
+            }
 
+            if (stop)
+                break;
+            
             if (strcmp(userInput, "exit") == 0) {
                 ReleaseSemaphore(errorSemaphore, 1, NULL);
                 break;
@@ -426,6 +477,8 @@ DWORD WINAPI counterFunc(LPVOID lpParam) {
         }
 
         EnterCriticalSection(&csTimer);
+        if (*counter == 0)
+            break;
         *counter = (*counter)--;
         updateTimerUI(*counter);
         LeaveCriticalSection(&csTimer);

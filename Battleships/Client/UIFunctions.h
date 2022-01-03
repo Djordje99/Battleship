@@ -23,11 +23,13 @@ void printElement(char printEl);
 
 void tableInitialization(char* table);
 
+void waiting();
+
 void updateTimerUI(int seconds);
 
 void gameStartUI(char *table);
 
-void userInputFunction(char* userInput);
+void userInputFunction(char* userInput, int* counter);
 
 void pauseCounterThread(HANDLE hThread);
 
@@ -37,9 +39,9 @@ void opponentsTurn();
 
 void myTurn();
 
-void changeTableField(int player, int i, int j, char* table, char element);
+void tryAgain(char* userInput);
 
-void blockUserInput(bool* stop);
+void changeTableField(int player, int i, int j, char* table, char element);
 
 void victory();
 

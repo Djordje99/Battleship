@@ -14,7 +14,8 @@ enum MessageType {
 	MISS,
 	DEFEAT,
 	VICTORY,
-	RECONNECT
+	RECONNECT,
+	PLAY
 };
 
 enum ActionPlayer {

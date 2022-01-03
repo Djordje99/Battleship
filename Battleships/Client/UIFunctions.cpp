@@ -806,6 +806,20 @@ void tableInitialization(char* table) {
 	hidecursor();
 }
 
+void waiting() {
+	_COORD c;
+	c.X = 51;
+	c.Y = 13;
+
+	SetConsoleCursorPosition(GetStdHandle(STD_OUTPUT_HANDLE), c);
+	printf("                                             ");
+
+	c.Y = 14;
+
+	SetConsoleCursorPosition(GetStdHandle(STD_OUTPUT_HANDLE), c);
+	printf("Waiting for opponent boat placements");
+}
+
 void updateTimerUI(int seconds) {
 	_COORD c;
 	c.X = 56;
@@ -846,18 +860,18 @@ void gameStartUI(char* table) {
 
 }
 
-void userInputFunction(char* userInput) {
+void userInputFunction(char* userInput, int* counter) {
 	_COORD c;
 	c.X = 51;
 	c.Y = 15;
 	char input;
 
-	while (true)
+	while (*counter)
 	{
 		if (_kbhit())
 		{
 			input = _getch();
-			if ((input > 64 && input < 75) || (input > 47 && input < 58) && strlen(userInput) < 3)
+			if (((input > 64 && input < 75) || (input > 47 && input < 58)) && strlen(userInput) < 3)
 			{
 				c.X++;
 				userInput[strlen(userInput)] = input;
@@ -872,7 +886,7 @@ void userInputFunction(char* userInput) {
 				printf(" ");
 				c.X--;
 			}
-			if (input == '\r')
+			if ((input == '\r') && (strlen(userInput) >= 2) && (userInput[1] != '0'))
 				break;
 
 		}
@@ -907,8 +921,13 @@ void opponentsTurn() {
 	SetConsoleCursorPosition(GetStdHandle(STD_OUTPUT_HANDLE), c);
 	printf("WAITING FOR OPPONENT'S MOVE");
 
-	c.Y = 15;
+	c.Y = 14;
 	c.X = 0;
+
+	SetConsoleCursorPosition(GetStdHandle(STD_OUTPUT_HANDLE), c);
+	printf("                                                  ");
+
+	c.Y = 15;
 
 	SetConsoleCursorPosition(GetStdHandle(STD_OUTPUT_HANDLE), c);
 	printf("                                                               ");
@@ -927,6 +946,20 @@ void myTurn() {
 
 	SetConsoleCursorPosition(GetStdHandle(STD_OUTPUT_HANDLE), c);
 	printf("Enter your next move in format [A-J,1-10] (ex. A5): ");
+}
+
+void tryAgain(char* userInput) {
+	_COORD c;
+	c.Y = 14;
+	c.X = 0;
+
+	SetConsoleCursorPosition(GetStdHandle(STD_OUTPUT_HANDLE), c);
+	printf("ERROR: You already tried field %s, try another one", userInput);
+
+	c.Y = 15;
+	c.X = 51;
+	SetConsoleCursorPosition(GetStdHandle(STD_OUTPUT_HANDLE), c);
+	printf("    ");
 }
 
 void changeTableField(int player, int i, int j, char* table, char element) {
@@ -961,7 +994,6 @@ void victory() {
 
 }
 
-
 void defeat() {
 	system("cls");
 	printf("\n");
@@ -979,15 +1011,4 @@ void defeat() {
 	printf("\n");
 	printf("				    Press Enter to continue...");
 	printf("\n");
-}
-
-void blockUserInput(bool* stop) {
-	while (stop)
-	{
-		if (_kbhit)
-		{
-
-		}
-		Sleep(100);
-	}
 }
