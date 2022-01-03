@@ -43,6 +43,9 @@ DWORD threadRecvPlayer1ID, threadRecvPlayer2ID;
 bool gameInProgress = false;
 bool gameInitializationInProgress = false;
 
+int connCountPlayer1 = 0; //broj puta koji su se konektovali kljenti
+int connCountPlayer2 = 0;
+
 char boardPlayer1[10][10];
 char boardPlayer2[10][10];
 
@@ -182,6 +185,9 @@ DWORD WINAPI Requests(LPVOID lpParam) {
     timeval timeVal;
     timeVal.tv_sec = 1;
     timeVal.tv_usec = 0;
+
+    int socketSelected = 0;
+
     while (true) {
         if (curentClientCount < MAX_CLIENTS + 1)
             FD_SET(listenSocket, &readfds);
@@ -236,9 +242,18 @@ DWORD WINAPI Requests(LPVOID lpParam) {
                     continue;
                 }
 
-                acceptedSocket[curentClientCount] = accept(listenSocket, NULL, NULL);
+                if (acceptedSocket[0] == INVALID_SOCKET) {
+                    acceptedSocket[0] = accept(listenSocket, NULL, NULL);
+                    connCountPlayer1++;
+                    socketSelected = 0;
+                }
+                else if (acceptedSocket[1] == INVALID_SOCKET) {
+                    acceptedSocket[1] = accept(listenSocket, NULL, NULL);
+                    connCountPlayer2++;
+                    socketSelected = 1;
+                }
 
-                if (acceptedSocket[curentClientCount] == INVALID_SOCKET)
+                if (acceptedSocket[socketSelected] == INVALID_SOCKET)
                 {
                     printf("accept failed with error: %d\n", WSAGetLastError());
                     closesocket(listenSocket);
@@ -248,10 +263,10 @@ DWORD WINAPI Requests(LPVOID lpParam) {
                 }
 
                 unsigned long mode = 1;
-                iResult = ioctlsocket(acceptedSocket[curentClientCount], FIONBIO, &mode);
+                iResult = ioctlsocket(acceptedSocket[socketSelected], FIONBIO, &mode);
 
                 //welcome message
-                iResult = send(acceptedSocket[curentClientCount], "true", (int)strlen("true") + 1, 0);
+                iResult = send(acceptedSocket[socketSelected], "true", (int)strlen("true") + 1, 0);
 
                 if (iResult == SOCKET_ERROR)
                 {
@@ -263,12 +278,12 @@ DWORD WINAPI Requests(LPVOID lpParam) {
 
                 curentClientCount++;
 
-                if (curentClientCount == 1)
+                if (socketSelected == 0)
                 {
                     threadSendPlayer1 = CreateThread(NULL, 0, &SendToPlayer1, NULL, 0, &threadSendPlayer1ID);
                     threadRecvPlayer1 = CreateThread(NULL, 0, &RecvFromPlayer1, NULL, 0, &threadRecvPlayer1ID);
                 }
-                if (curentClientCount == 2)
+                if (socketSelected == 1)
                 {
                     threadSendPlayer2 = CreateThread(NULL, 0, &SendToPlayer2, NULL, 0, &threadSendPlayer2ID);
                     threadRecvPlayer2 = CreateThread(NULL, 0, &RecvFromPlayer2, NULL, 0, &threadRecvPlayer2ID);
@@ -300,9 +315,9 @@ DWORD WINAPI ProducerForClients(LPVOID lpParam) {
                     arg2 = msg->argument[1];
 
                     if (msg->player == FIRST)
-                        boardPlayer1[arg1][arg2] = 1;
+                        boardPlayer1[arg1][arg2] = 3;
                     if (msg->player == SECOND)
-                        boardPlayer2[arg1][arg2] = 1;
+                        boardPlayer2[arg1][arg2] = 3;
                     break;
                 }
 
@@ -313,10 +328,10 @@ DWORD WINAPI ProducerForClients(LPVOID lpParam) {
                     bool hit = false;
 
                     if (msg->player == FIRST) {
-                        hit = boardPlayer2[arg1][arg2] == 1 ? true : false;
+                        hit = boardPlayer2[arg1][arg2] == 3 ? true : false;
 
                         if (hit) {
-                            boardPlayer2[arg1][arg2] = 'x';
+                            boardPlayer2[arg1][arg2] = 2;
                             message msgHit = FormatMessageStruct(HIT, FIRST, arg1, arg2);
                             if (GameOver(boardPlayer2)) {
                                 message msgV = FormatMessageStruct(VICTORY, FIRST, arg1, arg2);
@@ -330,6 +345,7 @@ DWORD WINAPI ProducerForClients(LPVOID lpParam) {
                             }
                         }
                         else {
+                            boardPlayer2[arg1][arg2] = 1;
                             message msgMiss = FormatMessageStruct(MISS, FIRST, arg1, arg2);
                             Enqueue(&msgMiss, &rootQueuePlayer1);
                             Enqueue(&msgMiss, &rootQueuePlayer2);
@@ -337,10 +353,10 @@ DWORD WINAPI ProducerForClients(LPVOID lpParam) {
                     }
 
                     if (msg->player == SECOND) {
-                        hit = boardPlayer1[arg1][arg2] == 1 ? true : false;
+                        hit = boardPlayer1[arg1][arg2] == 3 ? true : false;
 
                         if (hit) {
-                            boardPlayer1[arg1][arg2] = 'x';
+                            boardPlayer1[arg1][arg2] = 2;
                             message msgHit = FormatMessageStruct(HIT, SECOND, arg1, arg2);
                             if (GameOver(boardPlayer1)) {
                                 message msgV = FormatMessageStruct(VICTORY, SECOND, arg1, arg2);
@@ -354,6 +370,7 @@ DWORD WINAPI ProducerForClients(LPVOID lpParam) {
                             }
                         }
                         else {
+                            boardPlayer1[arg1][arg2] = 1;
                             message msgMiss = FormatMessageStruct(MISS, SECOND, arg1, arg2);
                             Enqueue(&msgMiss, &rootQueuePlayer1);
                             Enqueue(&msgMiss, &rootQueuePlayer2);
@@ -377,6 +394,30 @@ DWORD WINAPI ProducerForClients(LPVOID lpParam) {
                         Enqueue(msg, &rootQueuePlayer2);
                     break;
                 }
+                case PLACE_BOAT_CLIENT:
+                {
+                    if (msg->player == FIRST)
+                        Enqueue(msg, &rootQueuePlayer1);
+                    if (msg->player == SECOND)
+                        Enqueue(msg, &rootQueuePlayer2);
+                    break;
+                }
+                case PLACE_BOAT_CLIENT_OPONENT:
+                {
+                    if (msg->player == FIRST)
+                        Enqueue(msg, &rootQueuePlayer1);
+                    if (msg->player == SECOND)
+                        Enqueue(msg, &rootQueuePlayer2);
+                    break;
+                }
+                case RECONNECT:
+                {
+                    if (msg->player == FIRST)
+                        Enqueue(msg, &rootQueuePlayer1);
+                    if (msg->player == SECOND)
+                        Enqueue(msg, &rootQueuePlayer2);
+                    break;
+                }
             }
         }
 
@@ -387,7 +428,7 @@ DWORD WINAPI ProducerForClients(LPVOID lpParam) {
 #pragma region SendToPlayer
 
 DWORD WINAPI SendToPlayer1(LPVOID lpParam) {
-    while (true) {
+    while (true && acceptedSocket[0] != INVALID_SOCKET) {
         if (QueueCount(rootQueuePlayer1) != 0) {
             message sendP1 = *Dequeue(&rootQueuePlayer1);
 
@@ -401,14 +442,14 @@ DWORD WINAPI SendToPlayer1(LPVOID lpParam) {
                 return 1;
             }
         }
-        Sleep(10);
+        Sleep(40);
     }
 
     return 0;
 }
 
 DWORD WINAPI SendToPlayer2(LPVOID lpParam) {
-    while (true) {
+    while (true && acceptedSocket[1] != INVALID_SOCKET) {
         if (QueueCount(rootQueuePlayer2) != 0) {
             message sendP2 = *Dequeue(&rootQueuePlayer2);
 
@@ -422,6 +463,7 @@ DWORD WINAPI SendToPlayer2(LPVOID lpParam) {
                 return 1;
             }
         }
+        Sleep(40);
     }
 
     return 0;
@@ -440,7 +482,7 @@ DWORD WINAPI RecvFromPlayer1(LPVOID lpParam) {
     timeval timeVal;
     timeVal.tv_sec = 1;
     timeVal.tv_usec = 0;
-    while (true) {
+    while (true && acceptedSocket[0] != INVALID_SOCKET) {
         FD_SET(acceptedSocket[0], &readfds);
 
         int result = select(0, &readfds, NULL, NULL, &timeVal);
@@ -498,6 +540,22 @@ DWORD WINAPI RecvFromPlayer1(LPVOID lpParam) {
                                 Enqueue(msgToSend, &rootQueueRecv);
                             }
                         }
+                        else if (connCountPlayer1 > 1 && gameInProgress) {
+                            message msgConn = FormatMessageStruct(RECONNECT, FIRST, 0, 0);
+                            Enqueue(&msgConn, &rootQueueRecv);
+
+                            Sleep(20);
+
+                            message msgMatrix = FormatMessageStruct(PLACE_BOAT_CLIENT, FIRST, boardPlayer1);
+                            Enqueue(&msgMatrix, &rootQueueRecv);
+
+                            Sleep(20);
+
+                            message msgMatrixOponent = FormatMessageStruct(PLACE_BOAT_CLIENT_OPONENT, FIRST, boardPlayer2);
+                            Enqueue(&msgMatrixOponent, &rootQueueRecv);
+
+                            Sleep(20);
+                        }
                         else
                         {
                             msgToSend = (message*)malloc(sizeof(message));
@@ -519,11 +577,7 @@ DWORD WINAPI RecvFromPlayer1(LPVOID lpParam) {
                     // connection was closed gracefully
                     printf("Connection with client closed.\n");
                     closesocket(acceptedSocket[0]);
-
-                    if (acceptedSocket[1] != INVALID_SOCKET) {
-                        acceptedSocket[0] = acceptedSocket[1];
-                        acceptedSocket[1] = INVALID_SOCKET;
-                    }
+                    acceptedSocket[0] = INVALID_SOCKET;
                     curentClientCount--;
                 }
                 else
@@ -531,10 +585,7 @@ DWORD WINAPI RecvFromPlayer1(LPVOID lpParam) {
                     // there was an error during recv
                     printf("recv failed with error: %d\n", WSAGetLastError());
                     closesocket(acceptedSocket[0]);
-                    if (acceptedSocket[1] != INVALID_SOCKET) {
-                        acceptedSocket[0] = acceptedSocket[1];
-                        acceptedSocket[1] = INVALID_SOCKET;
-                    }
+                    acceptedSocket[0] = INVALID_SOCKET;
                     curentClientCount--;
                     break;
                 }
@@ -557,7 +608,7 @@ DWORD WINAPI RecvFromPlayer2(LPVOID lpParam) {
     timeval timeVal;
     timeVal.tv_sec = 1;
     timeVal.tv_usec = 0;
-    while (true) {
+    while (true && acceptedSocket[1] != INVALID_SOCKET) {
         FD_SET(acceptedSocket[1], &readfds);
 
         int result = select(0, &readfds, NULL, NULL, &timeVal);
@@ -615,6 +666,22 @@ DWORD WINAPI RecvFromPlayer2(LPVOID lpParam) {
                                 Enqueue(msgToSend, &rootQueueRecv);
                             }
                         }
+                        else if (connCountPlayer2 > 1 && gameInProgress) {
+                            message msgConn = FormatMessageStruct(RECONNECT, SECOND, 0, 0);
+                            Enqueue(&msgConn, &rootQueueRecv);
+
+                            Sleep(20);
+
+                            message msgMatrix = FormatMessageStruct(PLACE_BOAT_CLIENT, SECOND, boardPlayer2);
+                            Enqueue(&msgMatrix, &rootQueueRecv);
+
+                            Sleep(20);
+
+                            message msgMatrixOponent = FormatMessageStruct(PLACE_BOAT_CLIENT_OPONENT, SECOND, boardPlayer1);
+                            Enqueue(&msgMatrixOponent, &rootQueueRecv);
+
+                            Sleep(20);
+                        }
                         else
                         {
                             msgToSend = (message*)malloc(sizeof(message));
@@ -636,6 +703,7 @@ DWORD WINAPI RecvFromPlayer2(LPVOID lpParam) {
                     // connection was closed gracefully
                     printf("Connection with client closed.\n");
                     closesocket(acceptedSocket[1]);
+                    acceptedSocket[1] = INVALID_SOCKET;
                     curentClientCount--;
                 }
                 else
@@ -643,6 +711,7 @@ DWORD WINAPI RecvFromPlayer2(LPVOID lpParam) {
                     // there was an error during recv
                     printf("recv failed with error: %d\n", WSAGetLastError());
                     closesocket(acceptedSocket[1]);
+                    acceptedSocket[1] = INVALID_SOCKET;
                     curentClientCount--;
                     break;
                 }

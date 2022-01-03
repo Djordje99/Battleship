@@ -5,7 +5,7 @@ bool GameOver(char board[10][10]) {
 	{
 		for (int j = 0; j < 10; j++)
 		{
-			if (board[i][j] == 1) {
+			if (board[i][j] == 3) {
 				return false;
 			}
 		}

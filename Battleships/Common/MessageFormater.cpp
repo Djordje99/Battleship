@@ -24,6 +24,37 @@ message FormatMessageStruct(MessageType type, ActionPlayer player, char arg1, ch
 	return msg;
 }
 
+message FormatMessageStruct(MessageType type, ActionPlayer player, char matrix[10][10]) {
+	message msg;
+
+	msg.type = type;
+	msg.player = player;
+
+	for (int i = 0; i < 10; i++)
+	{
+		for (int j = 0; j < 10; j++)
+		{
+			if (matrix[i][j] == 1) {
+				//promasaj
+				msg.matrixArgumetn[i][j] = 1;
+			}
+			else if (matrix[i][j] == 2) {
+				//pogodak
+				msg.matrixArgumetn[i][j] = 2;
+			}
+			else if (matrix[i][j] == 3) {
+				//mesto broda
+				msg.matrixArgumetn[i][j] = 3;
+			}
+			else {
+				msg.matrixArgumetn[i][j] = 0;
+			}
+		}
+	}
+
+	return msg;
+}
+
 char* MessageTypeToString(MessageType type) {
 	char* typeString = 0;
 

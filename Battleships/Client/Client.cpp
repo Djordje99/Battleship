@@ -43,6 +43,8 @@ bool isMyTurn, waitingScreenSet;
 char userInput[256] = "";
 int counter = 30;
 
+bool reconnected = false;
+
 int main(int argc, char** argv)
 {
     // window resize block
@@ -136,18 +138,26 @@ int main(int argc, char** argv)
                 else
                     isMyTurn = false;
 
-                if (msg.type == READY)
-                    tableInitialization(board[0]);  // nakon sto se vrati iz ove funkcije board je popunjen jedinicama i nulama
-                                                    // moze da se doradi funkcija da vraca nesto sto olaksava pravljenje poruka ka
-                                                    // serveru ali je preporuka ne otvarati pandorinu kutiju
+                if (msg.type == READY) {
+                    // nakon sto se vrati iz ove funkcije board je popunjen jedinicama i nulama
+                    // moze da se doradi funkcija da vraca nesto sto olaksava pravljenje poruka ka
+                    // serveru ali je preporuka ne otvarati pandorinu kutiju
+                    tableInitialization(board[0]);
+                    _getch();
+                }  
+                else if (msg.type == RECONNECT) {
+                    printf("Reconnectig...\n");
+                    reconnected = true;
+                }
                 else
                 {
                     gameInProgress();
                     pressEnterToContinue();
                     closesocket(connectSocket);
                     return 5;
+
+                    _getch();
                 }
-                _getch();
             }
             else
             {
@@ -166,30 +176,31 @@ int main(int argc, char** argv)
     }
 
     //send to server matrix
-    for (int i = 0; i < 10; i++)
-    {
-        for (int j = 0; j < 10; j++)
-        {  
-            opponentBoard[i][j] = 0;
-            char feld = board[i][j];
-            if(feld == 3) {
-                message msg = FormatMessageStruct(PLACE_BOAT, player, i, j);
+    if (!reconnected) {
+        for (int i = 0; i < 10; i++)
+        {
+            for (int j = 0; j < 10; j++)
+            {
+                opponentBoard[i][j] = 0;
+                char feld = board[i][j];
+                if (feld == 3) {
+                    message msg = FormatMessageStruct(PLACE_BOAT, player, i, j);
 
-                int iResult = send(connectSocket, (char*)&msg, sizeof(msg), 0);
+                    int iResult = send(connectSocket, (char*)&msg, sizeof(msg), 0);
 
-                if (iResult == SOCKET_ERROR)
-                {
-                    printf("send failed with error: %d\n", WSAGetLastError());
-                    return -1;
+                    if (iResult == SOCKET_ERROR)
+                    {
+                        printf("send failed with error: %d\n", WSAGetLastError());
+                        return -1;
+                    }
+
+                    //printf("Bytes Sent: %ld\n", iResult);
+
+                    Sleep(20);
                 }
-
-                //printf("Bytes Sent: %ld\n", iResult);
-
-                Sleep(20);
             }
         }
     }
-
 
     //thread sender
     gameStartUI(board[0]);
@@ -343,6 +354,51 @@ DWORD WINAPI ReceiveMessageFromServer(LPVOID lpParam) {
                 defeat();
                 pressEnterToContinue();
                 ReleaseSemaphore(errorSemaphore, 1, NULL);
+            }
+            else if (recvmsg->player == player && recvmsg->type == PLACE_BOAT_CLIENT) {
+                for (int i = 0; i < 10; i++)
+                {
+                    for (int j = 0; j < 10; j++)
+                    {
+                        if (recvmsg->matrixArgumetn[i][j] == 1) {
+                            //promasaj
+                            changeTableField(1, i, j, board[0], 1);
+                            //board[i][j] = 1;
+                        }
+                        else if (recvmsg->matrixArgumetn[i][j] == 2) {
+                            //pogodak
+                            //board[i][j] = 2;
+                            changeTableField(1, i, j, board[0], 2);
+                        }
+                        else if (recvmsg->matrixArgumetn[i][j] == 3) {
+                            //mesto broda
+                            //board[i][j] = 3;
+                            changeTableField(1, i, j, board[0], 3);
+                        }
+                        else {
+                            //board[i][j] = 0;
+                            changeTableField(1, i, j, board[0], 0);
+                        }
+                    }
+                }
+            }
+            else if (recvmsg->player == player && recvmsg->type == PLACE_BOAT_CLIENT_OPONENT) {
+                for (int i = 0; i < 10; i++)
+                {
+                    for (int j = 0; j < 10; j++)
+                    {
+                        if (recvmsg->matrixArgumetn[i][j] == 1) {
+                            //promasaj
+                            changeTableField(2, i, j, opponentBoard[0], 1);
+                            //board[i][j] = 1;
+                        }
+                        else if (recvmsg->matrixArgumetn[i][j] == 2) {
+                            //pogodak
+                            //board[i][j] = 2;
+                            changeTableField(2, i, j, opponentBoard[0], 2);
+                        }
+                    }
+                }
             }
             else {
                 isMyTurn = false;
