@@ -27,15 +27,21 @@ bool InitializeWindowsSockets();
 
 DWORD WINAPI SendMessageToServer(LPVOID lpParam);
 DWORD WINAPI ReceiveMessageFromServer(LPVOID lpParam);
+DWORD WINAPI counterFunc(LPVOID lpParam);
 
 char messageToSend[MESSAGE_SEND_BUFFER_SIZE] = "";    
 char receivedMessage[MESSAGE_RECIEVE_BUFFER_SIZE] = "";
 SOCKET connectSocket = INVALID_SOCKET;
-HANDLE errorSemaphore;
+HANDLE errorSemaphore, hCounterThread;
+DWORD hCounterThreadID;
+CRITICAL_SECTION csTimer;
 
 char board[10][10];
+char opponentBoard[10][10];
 ActionPlayer player;
-bool isMyTurn;
+bool isMyTurn, waitingScreenSet;
+char userInput[256] = "";
+int counter = 30;
 
 int main(int argc, char** argv)
 {
@@ -163,9 +169,10 @@ int main(int argc, char** argv)
     for (int i = 0; i < 10; i++)
     {
         for (int j = 0; j < 10; j++)
-        {   
+        {  
+            opponentBoard[i][j] = 0;
             char feld = board[i][j];
-            if(feld == '\x1') {
+            if(feld == 3) {
                 message msg = FormatMessageStruct(PLACE_BOAT, player, i, j);
 
                 int iResult = send(connectSocket, (char*)&msg, sizeof(msg), 0);
@@ -176,7 +183,7 @@ int main(int argc, char** argv)
                     return -1;
                 }
 
-                printf("Bytes Sent: %ld\n", iResult);
+                //printf("Bytes Sent: %ld\n", iResult);
 
                 Sleep(20);
             }
@@ -185,11 +192,38 @@ int main(int argc, char** argv)
 
 
     //thread sender
+    gameStartUI(board[0]);
     threadSender = CreateThread(NULL, 0, &SendMessageToServer, NULL, 0, &threadSenderID);
     threadReceiver = CreateThread(NULL, 0, &ReceiveMessageFromServer, NULL, 0, &threadReceiverID);
+    hCounterThread = CreateThread(NULL, 0, &counterFunc, &counter, 0, &hCounterThreadID);
+    //pauseCounterThread(hCounterThread);
+    InitializeCriticalSection(&csTimer);
+    
+    
+    /*
+    while (true) {
+        myTurn();
+        resumeCounterThread(hCounterThread);
+
+        userInputFunction(userInput);
+        //_getch();
+        pauseCounterThread(hCounterThread);
+        changeTableField(FIRST, 0, 0, board[0], 1);
+
+        opponentsTurn();
+        _getch();
+
+        counter = 30;
+    }
+    */
+
     WaitForSingleObject(errorSemaphore, INFINITE);
 
     // cleanup
+    CloseHandle(threadSender);
+    CloseHandle(threadReceiver);
+    CloseHandle(hCounterThread);
+    DeleteCriticalSection(&csTimer);
     closesocket(connectSocket);
     WSACleanup();
 
@@ -209,17 +243,34 @@ bool InitializeWindowsSockets()
 }
 
 DWORD WINAPI SendMessageToServer(LPVOID lpParam) {
+    bool set = false;
     while (true) {
         if (isMyTurn) {
+            /*
             printf("Type cordinate to attack enemy boat; format [0-9, 0-9]: ");
             scanf("%s", messageToSend);
+            */
+            memset(userInput, 0, strlen(userInput));
+            set = false;
+            counter = 30;
+            myTurn();
+            resumeCounterThread(hCounterThread);
+            userInputFunction(userInput);
 
-            if (strcmp(messageToSend, "exit") == 0) {
+            if (strcmp(userInput, "exit") == 0) {
                 ReleaseSemaphore(errorSemaphore, 1, NULL);
                 break;
             }
 
-            message msg = FormatMessageStruct(AIM_BOAT, player, atoi(&messageToSend[0]), atoi(&messageToSend[2]));
+            message msg;
+            if (strlen(userInput) == 2)
+            {
+                msg = FormatMessageStruct(AIM_BOAT, player, atoi(&userInput[1]) - 1, userInput[0] - 65);
+            }
+            else
+            {
+                msg = FormatMessageStruct(AIM_BOAT, player, 9, userInput[0] - 65);
+            }
 
             int iResult = send(connectSocket, (char*)&msg, sizeof(msg), 0);
 
@@ -230,10 +281,19 @@ DWORD WINAPI SendMessageToServer(LPVOID lpParam) {
                 break;
             }
 
-            printf("Bytes Sent: %ld\n", iResult);
+            memset(userInput, 0, strlen(userInput));
+            //printf("Bytes Sent: %ld\n", iResult);          
         }
        
         isMyTurn = false;
+
+        if (!isMyTurn && !set)
+        {
+            pauseCounterThread(hCounterThread);
+            Sleep(100);
+            opponentsTurn();
+            set = true;
+        }
 
         Sleep(10);
     }
@@ -250,22 +310,43 @@ DWORD WINAPI ReceiveMessageFromServer(LPVOID lpParam) {
 
         if (iResult > 0)
         {
-            printf("\nMessage received from service\n");
+            //printf("\nMessage received from service\n");
 
             if (recvmsg->player != player && recvmsg->type == MISS)
+            {
+                changeTableField(1, recvmsg->argument[0], recvmsg->argument[1], board[0], 1);
                 isMyTurn = true;
-            else if(recvmsg->player == player && recvmsg->type == HIT)
+            }
+            else if (recvmsg->player == player && recvmsg->type == HIT)
+            {
+                changeTableField(2, recvmsg->argument[0], recvmsg->argument[1], opponentBoard[0], 2);
                 isMyTurn = true;
+            }
+            else if (recvmsg->player == player && recvmsg->type == MISS) {
+                changeTableField(2, recvmsg->argument[0], recvmsg->argument[1], opponentBoard[0], 1);
+                isMyTurn = false;
+            }
+            else  if (recvmsg->player != player && recvmsg->type == HIT) {
+                changeTableField(1, recvmsg->argument[0], recvmsg->argument[1], board[0], 2);
+                isMyTurn = false;
+            }
             else if (recvmsg->player == player && recvmsg->type == VICTORY) {
                 isMyTurn = false;
-                printf("VICTORY!");
+                Sleep(100);
+                victory();
+                pressEnterToContinue();
+                ReleaseSemaphore(errorSemaphore, 1, NULL);
             }
             else if (recvmsg->player == player && recvmsg->type == DEFEAT) {
                 isMyTurn = false;
-                printf("DEFEAT :(");
+                Sleep(100);
+                defeat();
+                pressEnterToContinue();
+                ReleaseSemaphore(errorSemaphore, 1, NULL);
             }
-            else
+            else {
                 isMyTurn = false;
+            }
 
         }
         else {
@@ -274,6 +355,25 @@ DWORD WINAPI ReceiveMessageFromServer(LPVOID lpParam) {
         }
 
         Sleep(10);
+    }
+
+    return 0;
+}
+
+DWORD WINAPI counterFunc(LPVOID lpParam) {
+    int* counter = (int*)lpParam;
+    int pom = 0;
+    while (true) {
+        while (pom != 100) {
+            Sleep(10);
+            pom++;
+        }
+
+        EnterCriticalSection(&csTimer);
+        *counter = (*counter)--;
+        updateTimerUI(*counter);
+        LeaveCriticalSection(&csTimer);
+        pom = 0;
     }
 
     return 0;

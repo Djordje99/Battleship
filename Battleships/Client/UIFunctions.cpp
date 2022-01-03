@@ -177,6 +177,8 @@ void printElement(char printEl) {
         printf("O");
         printf("\033[0m");
         break;
+	case 3:
+		printf("#");
     default:
         break;
     }
@@ -797,9 +799,195 @@ void tableInitialization(char* table) {
 
 	for (int i = 0; i < 10; i++) {
 		for (j = 0; j < 10; j++) {
-			*(table + i * 10 + j) = helpTable[i][j] == 3 ? 0 : helpTable[i][j];
+			*(table + i * 10 + j) = helpTable[i][j] == 3 ? 0 : helpTable[i][j] == 1 ? 3 : 0;
 		}
 	}
 
 	hidecursor();
+}
+
+void updateTimerUI(int seconds) {
+	_COORD c;
+	c.X = 56;
+	c.Y = 0;
+
+	if (seconds == 9) {
+		c.X = 57;
+		SetConsoleCursorPosition(GetStdHandle(STD_OUTPUT_HANDLE), c);
+		printf(" ");
+		c.X = 56;
+	}
+
+	SetConsoleCursorPosition(GetStdHandle(STD_OUTPUT_HANDLE), c);
+	printf("%d", seconds);
+}
+
+void gameStartUI(char* table) {
+	system("cls");
+	hidecursor();
+
+	printf("\n");
+	printf("                   YOUR TABLE			  	           OPPONENT TABLE\n");
+	printf("     A   B   C   D   E   F   G   H   I   J       |       A   B   C   D   E   F   G   H   I   J\n");
+	printf("   _________________________________________     |     _________________________________________\n");
+	//printf("\n");
+	printf(" 1 | "); printElement(*(table + 0 * 10 + 0)); printf(" | "); printElement(*(table + 0 * 10 + 1)); printf(" | "); printElement(*(table + 0 * 10 + 2)); printf(" | "); printElement(*(table + 0 * 10 + 3)); printf(" | "); printElement(*(table + 0 * 10 + 4)); printf(" | "); printElement(*(table + 0 * 10 + 5)); printf(" | "); printElement(*(table + 0 * 10 + 6)); printf(" | "); printElement(*(table + 0 * 10 + 7)); printf(" | "); printElement(*(table + 0 * 10 + 8)); printf(" | "); printElement(*(table + 0 * 10 + 9)); printf(" |"); printf("     |   1 | ~ | ~ | ~ | ~ | ~ | ~ | ~ | ~ | ~ | ~ |\n");
+	printf(" 2 | "); printElement(*(table + 1 * 10 + 0)); printf(" | "); printElement(*(table + 1 * 10 + 1)); printf(" | "); printElement(*(table + 1 * 10 + 2)); printf(" | "); printElement(*(table + 1 * 10 + 3)); printf(" | "); printElement(*(table + 1 * 10 + 4)); printf(" | "); printElement(*(table + 1 * 10 + 5)); printf(" | "); printElement(*(table + 1 * 10 + 6)); printf(" | "); printElement(*(table + 1 * 10 + 7)); printf(" | "); printElement(*(table + 1 * 10 + 8)); printf(" | "); printElement(*(table + 1 * 10 + 9)); printf(" |");	printf("     |   2 | ~ | ~ | ~ | ~ | ~ | ~ | ~ | ~ | ~ | ~ |\n");
+	printf(" 3 | "); printElement(*(table + 2 * 10 + 0)); printf(" | "); printElement(*(table + 2 * 10 + 1)); printf(" | "); printElement(*(table + 2 * 10 + 2)); printf(" | "); printElement(*(table + 2 * 10 + 3)); printf(" | "); printElement(*(table + 2 * 10 + 4)); printf(" | "); printElement(*(table + 2 * 10 + 5)); printf(" | "); printElement(*(table + 2 * 10 + 6)); printf(" | "); printElement(*(table + 2 * 10 + 7)); printf(" | "); printElement(*(table + 2 * 10 + 8)); printf(" | "); printElement(*(table + 2 * 10 + 9)); printf(" |");	printf("     |   3 | ~ | ~ | ~ | ~ | ~ | ~ | ~ | ~ | ~ | ~ |\n");
+	printf(" 4 | "); printElement(*(table + 3 * 10 + 0)); printf(" | "); printElement(*(table + 3 * 10 + 1)); printf(" | "); printElement(*(table + 3 * 10 + 2)); printf(" | "); printElement(*(table + 3 * 10 + 3)); printf(" | "); printElement(*(table + 3 * 10 + 4)); printf(" | "); printElement(*(table + 3 * 10 + 5)); printf(" | "); printElement(*(table + 3 * 10 + 6)); printf(" | "); printElement(*(table + 3 * 10 + 7)); printf(" | "); printElement(*(table + 3 * 10 + 8)); printf(" | "); printElement(*(table + 3 * 10 + 9)); printf(" |");	printf("     |   4 | ~ | ~ | ~ | ~ | ~ | ~ | ~ | ~ | ~ | ~ |\n");
+	printf(" 5 | "); printElement(*(table + 4 * 10 + 0)); printf(" | "); printElement(*(table + 4 * 10 + 1)); printf(" | "); printElement(*(table + 4 * 10 + 2)); printf(" | "); printElement(*(table + 4 * 10 + 3)); printf(" | "); printElement(*(table + 4 * 10 + 4)); printf(" | "); printElement(*(table + 4 * 10 + 5)); printf(" | "); printElement(*(table + 4 * 10 + 6)); printf(" | "); printElement(*(table + 4 * 10 + 7)); printf(" | "); printElement(*(table + 4 * 10 + 8)); printf(" | "); printElement(*(table + 4 * 10 + 9)); printf(" |");	printf("     |   5 | ~ | ~ | ~ | ~ | ~ | ~ | ~ | ~ | ~ | ~ |\n");
+	printf(" 6 | "); printElement(*(table + 5 * 10 + 0)); printf(" | "); printElement(*(table + 5 * 10 + 1)); printf(" | "); printElement(*(table + 5 * 10 + 2)); printf(" | "); printElement(*(table + 5 * 10 + 3)); printf(" | "); printElement(*(table + 5 * 10 + 4)); printf(" | "); printElement(*(table + 5 * 10 + 5)); printf(" | "); printElement(*(table + 5 * 10 + 6)); printf(" | "); printElement(*(table + 5 * 10 + 7)); printf(" | "); printElement(*(table + 5 * 10 + 8)); printf(" | "); printElement(*(table + 5 * 10 + 9)); printf(" |");	printf("     |   6 | ~ | ~ | ~ | ~ | ~ | ~ | ~ | ~ | ~ | ~ |\n");
+	printf(" 7 | "); printElement(*(table + 6 * 10 + 0)); printf(" | "); printElement(*(table + 6 * 10 + 1)); printf(" | "); printElement(*(table + 6 * 10 + 2)); printf(" | "); printElement(*(table + 6 * 10 + 3)); printf(" | "); printElement(*(table + 6 * 10 + 4)); printf(" | "); printElement(*(table + 6 * 10 + 5)); printf(" | "); printElement(*(table + 6 * 10 + 6)); printf(" | "); printElement(*(table + 6 * 10 + 7)); printf(" | "); printElement(*(table + 6 * 10 + 8)); printf(" | "); printElement(*(table + 6 * 10 + 9)); printf(" |");	printf("     |   7 | ~ | ~ | ~ | ~ | ~ | ~ | ~ | ~ | ~ | ~ |\n");
+	printf(" 8 | "); printElement(*(table + 7 * 10 + 0)); printf(" | "); printElement(*(table + 7 * 10 + 1)); printf(" | "); printElement(*(table + 7 * 10 + 2)); printf(" | "); printElement(*(table + 7 * 10 + 3)); printf(" | "); printElement(*(table + 7 * 10 + 4)); printf(" | "); printElement(*(table + 7 * 10 + 5)); printf(" | "); printElement(*(table + 7 * 10 + 6)); printf(" | "); printElement(*(table + 7 * 10 + 7)); printf(" | "); printElement(*(table + 7 * 10 + 8)); printf(" | "); printElement(*(table + 7 * 10 + 9)); printf(" |");	printf("     |   8 | ~ | ~ | ~ | ~ | ~ | ~ | ~ | ~ | ~ | ~ |\n");
+	printf(" 9 | "); printElement(*(table + 8 * 10 + 0)); printf(" | "); printElement(*(table + 8 * 10 + 1)); printf(" | "); printElement(*(table + 8 * 10 + 2)); printf(" | "); printElement(*(table + 8 * 10 + 3)); printf(" | "); printElement(*(table + 8 * 10 + 4)); printf(" | "); printElement(*(table + 8 * 10 + 5)); printf(" | "); printElement(*(table + 8 * 10 + 6)); printf(" | "); printElement(*(table + 8 * 10 + 7)); printf(" | "); printElement(*(table + 8 * 10 + 8)); printf(" | "); printElement(*(table + 8 * 10 + 9)); printf(" |");	printf("     |   9 | ~ | ~ | ~ | ~ | ~ | ~ | ~ | ~ | ~ | ~ |\n");
+	printf("10 | "); printElement(*(table + 9 * 10 + 0)); printf(" | "); printElement(*(table + 9 * 10 + 1)); printf(" | "); printElement(*(table + 9 * 10 + 2)); printf(" | "); printElement(*(table + 9 * 10 + 3)); printf(" | "); printElement(*(table + 9 * 10 + 4)); printf(" | "); printElement(*(table + 9 * 10 + 5)); printf(" | "); printElement(*(table + 9 * 10 + 6)); printf(" | "); printElement(*(table + 9 * 10 + 7)); printf(" | "); printElement(*(table + 9 * 10 + 8)); printf(" | "); printElement(*(table + 9 * 10 + 9)); printf(" |");	printf("     |  10 | ~ | ~ | ~ | ~ | ~ | ~ | ~ | ~ | ~ | ~ |\n");
+	
+	printf("   \n");
+
+}
+
+void userInputFunction(char* userInput) {
+	_COORD c;
+	c.X = 51;
+	c.Y = 15;
+	char input;
+
+	while (true)
+	{
+		if (_kbhit())
+		{
+			input = _getch();
+			if ((input > 64 && input < 75) || (input > 47 && input < 58) && strlen(userInput) < 3)
+			{
+				c.X++;
+				userInput[strlen(userInput)] = input;
+
+				SetConsoleCursorPosition(GetStdHandle(STD_OUTPUT_HANDLE), c);
+				printf("%c", input);
+			}
+			if (input == 8 && (strlen(userInput) > 0))
+			{
+				userInput[strlen(userInput) - 1] = 0;
+				SetConsoleCursorPosition(GetStdHandle(STD_OUTPUT_HANDLE), c);
+				printf(" ");
+				c.X--;
+			}
+			if (input == '\r')
+				break;
+
+		}
+	}
+}
+
+void pauseCounterThread(HANDLE hThread) {
+	DWORD suspend_retval = SuspendThread(hThread);
+	if (suspend_retval == static_cast<DWORD>(-1))
+	{
+		// handle suspend error
+		printf("ERROR on suspend\n");
+		exit(1);
+	}
+}
+
+void resumeCounterThread(HANDLE hThread) {
+	DWORD resume_retval = ResumeThread(hThread);
+	if (resume_retval == static_cast<DWORD>(-1))
+	{
+		// handle resume error
+		printf("ERROR on resume\n");
+		exit(1);
+	}
+}
+
+void opponentsTurn() {
+	_COORD c;
+	c.Y = 0;
+	c.X = 36;
+
+	SetConsoleCursorPosition(GetStdHandle(STD_OUTPUT_HANDLE), c);
+	printf("WAITING FOR OPPONENT'S MOVE");
+
+	c.Y = 15;
+	c.X = 0;
+
+	SetConsoleCursorPosition(GetStdHandle(STD_OUTPUT_HANDLE), c);
+	printf("                                                               ");
+}
+
+void myTurn() {
+	_COORD c;
+	c.Y = 0;
+	c.X = 36;
+
+	SetConsoleCursorPosition(GetStdHandle(STD_OUTPUT_HANDLE), c);
+	printf("     TICKING TIMER: 30      ");
+
+	c.Y = 15;
+	c.X = 0;
+
+	SetConsoleCursorPosition(GetStdHandle(STD_OUTPUT_HANDLE), c);
+	printf("Enter your next move in format [A-J,1-10] (ex. A5): ");
+}
+
+void changeTableField(int player, int i, int j, char* table, char element) {
+	*(table + i * 10 + j) = element;
+
+	_COORD c;
+	c.Y = 4 + i;
+	c.X = (player - 1) * 52 + 5 + j * 4;
+
+	SetConsoleCursorPosition(GetStdHandle(STD_OUTPUT_HANDLE), c);
+	printElement(element);
+}
+
+void victory() {
+	system("cls");
+	printf("\n");
+	printf("\n");
+	printf("\n");
+	printf("\n");
+
+	printf("			__      _______ _____ _______ ____ _______     __\n");
+	printf("			\\ \\    / /_   _/ ____|__   __/  _ \\|  __\\ \\   / /\n");
+	printf("			 \\ \\  / /  | || |       | |  | | | | |__)\\ \\_/ /\n");
+	printf("			  \\ \\/ /   | || |       | |  | | | |  _  /\\   /\n");
+	printf("			   \\  /   _| || |____   | |  | |_| | | \\ \\ | |\n");
+	printf("			    \\/   |_____\\_____|  |_|  \\____/|_|  \\_\\|_|\n");
+
+	printf("\n");
+	printf("				    Press Enter to continue...");
+	printf("\n");
+
+
+}
+
+
+void defeat() {
+	system("cls");
+	printf("\n");
+	printf("\n");
+	printf("\n");
+	printf("\n");
+
+	printf("			    _____  ______ ______ _____        _______		\n");
+	printf("			   |  __ \\| ____ | ____ | ____|    /\\|__   __|	\n");
+	printf("			   | |  | | |__  | |__  | |__     /  \\  | |		\n");
+	printf("			   | |  | |  __| |  __| |  __|   / /\\ \\ | |		\n");
+	printf("			   | |__| | |____| |    | |____ / ____ \\| |		\n");
+	printf("			   |_____/|______|_|    |______/_/    \\_\\_|		\n");
+
+	printf("\n");
+	printf("				    Press Enter to continue...");
+	printf("\n");
+}
+
+void blockUserInput(bool* stop) {
+	while (stop)
+	{
+		if (_kbhit)
+		{
+
+		}
+		Sleep(100);
+	}
 }
