@@ -13,6 +13,7 @@
 #include "../Common/Message.h"
 #include "../Common/MessageFormater.cpp"
 
+
 #define DEFAULT_BUFLEN 512
 #define MESSAGE_SEND_BUFFER_SIZE 1024
 #define MESSAGE_RECIEVE_BUFFER_SIZE 512
@@ -208,24 +209,6 @@ int main(int argc, char** argv)
     hCounterThread = CreateThread(NULL, 0, &counterFunc, &counter, 0, &hCounterThreadID);
     //pauseCounterThread(hCounterThread);
     InitializeCriticalSection(&csTimer);
-    
-    
-    /*
-    while (true) {
-        myTurn();
-        resumeCounterThread(hCounterThread);
-
-        userInputFunction(userInput);
-        //_getch();
-        pauseCounterThread(hCounterThread);
-        changeTableField(FIRST, 0, 0, board[0], 1);
-
-        opponentsTurn();
-        _getch();
-
-        counter = 30;
-    }
-    */
 
     WaitForSingleObject(errorSemaphore, INFINITE);
 
@@ -268,6 +251,7 @@ DWORD WINAPI SendMessageToServer(LPVOID lpParam) {
                 counter = 30;
 
             myTurn();
+            stop = false;
             resumeCounterThread(hCounterThread);
             while (true)
             {
@@ -278,6 +262,11 @@ DWORD WINAPI SendMessageToServer(LPVOID lpParam) {
                 }
                 else {
                     if (strlen(userInput) == 2) {
+                        if ((userInput[0] < 'A' || userInput[0] > 'J') || (userInput[1] < '1' || userInput[1] > '9')) {
+                            memset(userInput, 0, 4);
+                            resetInput();
+                            continue;
+                        }
                         if (opponentBoard[userInput[1] - 49][userInput[0] - 65] != 0) {
                             tryAgain(userInput);
                             memset(userInput, 0, 4);
@@ -288,6 +277,11 @@ DWORD WINAPI SendMessageToServer(LPVOID lpParam) {
                         }
                     }
                     else {
+                        if ((userInput[0] < 'A' || userInput[0] > 'J') || userInput[1] != '1' || userInput[2] != '0') {
+                            memset(userInput, 0, 4);
+                            resetInput();
+                            continue;
+                        }
                         if (opponentBoard[9][userInput[0] - 65] != 0) {
                             tryAgain(userInput);
                             memset(userInput, 0, 4);
@@ -300,33 +294,35 @@ DWORD WINAPI SendMessageToServer(LPVOID lpParam) {
                 }
             }
 
-            if (stop)
-                break;
+            /*if (stop)
+                break;*/
             
             if (strcmp(userInput, "exit") == 0) {
                 ReleaseSemaphore(errorSemaphore, 1, NULL);
                 break;
             }
 
-            message msg;
-            if (strlen(userInput) == 2)
+            if (!stop)
             {
-                msg = FormatMessageStruct(AIM_BOAT, player, atoi(&userInput[1]) - 1, userInput[0] - 65);
-            }
-            else
-            {
-                msg = FormatMessageStruct(AIM_BOAT, player, 9, userInput[0] - 65);
-            }
+                message msg;
+                if (strlen(userInput) == 2)
+                {
+                    msg = FormatMessageStruct(AIM_BOAT, player, atoi(&userInput[1]) - 1, userInput[0] - 65);
+                }
+                else
+                {
+                    msg = FormatMessageStruct(AIM_BOAT, player, 9, userInput[0] - 65);
+                }
 
-            int iResult = send(connectSocket, (char*)&msg, sizeof(msg), 0);
+                int iResult = send(connectSocket, (char*)&msg, sizeof(msg), 0);
 
-            if (iResult == SOCKET_ERROR)
-            {
-                printf("send failed with error: %d\n", WSAGetLastError());
-                ReleaseSemaphore(errorSemaphore, 1, NULL);
-                break;
+                if (iResult == SOCKET_ERROR)
+                {
+                    printf("send failed with error: %d\n", WSAGetLastError());
+                    ReleaseSemaphore(errorSemaphore, 1, NULL);
+                    break;
+                }
             }
-
             memset(userInput, 0, strlen(userInput));
             //printf("Bytes Sent: %ld\n", iResult);          
         }

@@ -8,6 +8,7 @@
 #include "Queue.h"
 #include "../Common/Message.h"
 #include "../Common/MessageFormater.cpp"
+#include "../Server/BotFunctions.h"
 #include "GameHelper.h"
 
 #define DEFAULT_BUFLEN 512
@@ -474,6 +475,27 @@ DWORD WINAPI ProducerForClients(LPVOID lpParam) {
                 }
                 case PLACE_BOAT_CLIENT_OPONENT:
                 {
+                    if (msg->player == NONE)
+                    {
+                        if (hisTurn == FIRST) {
+                            hisTurn = SECOND;
+                            //EnterCriticalSection(&csTimer);
+                            message msgPlay = FormatMessageStruct(TURN_PLAY, SECOND, 30, 0);
+                            message msgWait = FormatMessageStruct(TURN_WAIT, FIRST, 0, 0);
+                            Enqueue(&msgWait, &rootQueuePlayer1);
+                            Enqueue(&msgPlay, &rootQueuePlayer2);
+                            //LeaveCriticalSection(&csTimer);
+                        }
+                        else {
+                            hisTurn = FIRST;
+                            //EnterCriticalSection(&csTimer);
+                            message msgPlay = FormatMessageStruct(TURN_PLAY, FIRST, 30, 0);
+                            message msgWait = FormatMessageStruct(TURN_WAIT, SECOND, 0, 0);
+                            Enqueue(&msgWait, &rootQueuePlayer2);
+                            Enqueue(&msgPlay, &rootQueuePlayer1);
+                            //LeaveCriticalSection(&csTimer);
+                        }
+                    }
                     if (msg->player == FIRST) {
                         Enqueue(msg, &rootQueuePlayer1);
                         if (hisTurn == FIRST) {
@@ -855,7 +877,8 @@ DWORD WINAPI RecvFromPlayer2(LPVOID lpParam) {
 
 DWORD WINAPI counterFunc(LPVOID lpParam) {
     int* counter = (int*)lpParam;
-    int pom = 0;
+    int pom = 0, moveRedirected = 0;
+    message* errMsg;
     while (true) {
         while (pom != 100) {
             Sleep(10);
@@ -864,12 +887,27 @@ DWORD WINAPI counterFunc(LPVOID lpParam) {
 
         EnterCriticalSection(&csTimer);
         if (*counter == 0) {
-            message* msgEnd = (message*)malloc(sizeof(message));
-            msgEnd->type = DEFEAT;
-            Enqueue(msgEnd, &rootQueueRecv);
-            break;
+            if (moveRedirected == 1) {
+                message* msgEnd = (message*)malloc(sizeof(message));
+                msgEnd->type = DEFEAT;
+                Enqueue(msgEnd, &rootQueueRecv);
+                moveRedirected = 0;
+                break;
+            }
+            moveRedirected++;
+            *counter = 31;
+            //redirect move to other player
+            errMsg = (message*)malloc(sizeof(message));
+            errMsg->type = PLACE_BOAT_CLIENT_OPONENT;
+            errMsg->player = NONE;
+
+            Enqueue(errMsg, &rootQueueRecv);
+            LeaveCriticalSection(&csTimer);
+            //Sleep(300);
+            continue;
         }
         *counter = (*counter)--;
+        printf("    counter - %d\n", *counter);
         LeaveCriticalSection(&csTimer);
         pom = 0;
     }

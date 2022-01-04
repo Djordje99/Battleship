@@ -286,6 +286,429 @@ bool checkIfFieldIsAvailable(char* table, char* coordinate, int length) {
         return false;
 }
 
+void randomTableInitialization(char* table) {
+	COORD c;
+	HCRYPTPROV   hCryptProv;
+	BYTE         pbData[2];
+
+	char helpTable[10][10];
+	int i, j;
+	for (int i = 0; i < 10; i++) {
+		for (j = 0; j < 10; j++) {
+			helpTable[i][j] = 0;
+		}
+	}
+
+	int caseTry = 0;
+	int boats = 0;
+	int length[5] = { 5,4,3,3,2 };
+	char inputFirstCoord[4] = "";
+	char inputSecondCoord[4] = "";
+	int counter = 1;
+	bool generateFirstAgain = false;
+
+	CryptAcquireContext(
+		&hCryptProv,
+		NULL,
+		(LPCWSTR)L"Microsoft Base Cryptographic Provider v1.0",
+		PROV_RSA_FULL,
+		CRYPT_VERIFYCONTEXT);
+
+
+
+	while (true)
+	{
+		//generisati 2 puta od 0 do 9 
+		if (CryptGenRandom(hCryptProv, 2, pbData))
+		{
+			inputFirstCoord[0] = pbData[0] % 10 + 65;
+			inputFirstCoord[1] = pbData[1] % 10 + 48;
+			if (inputFirstCoord[1] == 48) {
+				inputFirstCoord[1] = 49;
+			}
+		}
+		if (!checkIfFieldIsAvailable(helpTable[0], inputFirstCoord, strlen(inputFirstCoord)))
+		{
+			continue;
+		}
+
+		caseTry = 0;
+		while (true)
+		{
+			switch (caseTry)
+			{
+			case 0:
+				caseTry++;
+				if (inputFirstCoord[1] - length[boats] + 1 > 48) {
+					inputSecondCoord[1] = inputFirstCoord[1] - length[boats] + 1;
+					inputSecondCoord[0] = inputFirstCoord[0];
+				}
+				else {
+					continue;
+				}
+				break;
+			case 1:
+				caseTry++;
+				if (inputFirstCoord[1] + length[boats] - 1 < 58) {
+					inputSecondCoord[1] = inputFirstCoord[1] + length[boats] - 1;
+					inputSecondCoord[0] = inputFirstCoord[0];
+				}
+				else {
+					continue;
+				}
+				break;
+			case 2:
+				caseTry++;
+				if (inputFirstCoord[0] - length[boats] + 1 > 64) {
+					inputSecondCoord[0] = inputFirstCoord[0] - length[boats] + 1;
+					inputSecondCoord[1] = inputFirstCoord[1];
+				}
+				else {
+					continue;
+				}
+				break;
+			case 3:
+				caseTry++;
+				if (inputFirstCoord[0] + length[boats] - 1 < 75) {
+					inputSecondCoord[0] = inputFirstCoord[0] + length[boats] - 1;
+					inputSecondCoord[1] = inputFirstCoord[1];
+				}
+				else {
+					continue;
+				}
+			}
+
+			if (caseTry == 4) {
+				break;
+				generateFirstAgain = true;
+			}
+
+			if (!checkIfFieldIsAvailable(helpTable[0], inputSecondCoord, strlen(inputSecondCoord)))
+			{
+				continue;
+			}
+
+			break;
+		}
+
+		if (generateFirstAgain)
+			continue;
+
+		boats++;
+
+		char number[3];
+		strcpy_s(number, inputFirstCoord + 1);
+		int firstCoordNumber = atoi(number);
+		strcpy_s(number, inputSecondCoord + 1);
+		int secondCoordNumber = atoi(number);
+
+
+		if (inputFirstCoord[0] == inputSecondCoord[0])
+		{
+			c.X = 5 + (inputFirstCoord[0] % 65) * 4;
+			c.Y = 5;
+			if (secondCoordNumber > firstCoordNumber)
+			{
+				c.Y = 5 + secondCoordNumber - 1;
+				for (i = secondCoordNumber; i >= firstCoordNumber; i--)
+				{
+					SetConsoleCursorPosition(GetStdHandle(STD_OUTPUT_HANDLE), c);
+					printf("#");
+					helpTable[c.Y - 5][inputFirstCoord[0] % 65] = 1;
+					if (i == secondCoordNumber) //prvi prolaz
+					{
+						if ((c.Y - 5 + 1 <= 9) && ((inputFirstCoord[0] % 65) - 1 >= 0))
+						{
+							helpTable[c.Y - 5 + 1][inputFirstCoord[0] % 65 - 1] = 3;
+						}
+						if (c.Y - 5 + 1 <= 9)
+						{
+							helpTable[c.Y - 5 + 1][inputFirstCoord[0] % 65] = 3;
+						}
+						if ((c.Y - 5 + 1 <= 9) && ((inputFirstCoord[0] % 65) + 1 <= 9))
+						{
+							helpTable[c.Y - 5 + 1][inputFirstCoord[0] % 65 + 1] = 3;
+						}
+						if ((inputFirstCoord[0] % 65) - 1 >= 0)
+						{
+							helpTable[c.Y - 5][inputFirstCoord[0] % 65 - 1] = 3;
+						}
+						if ((inputFirstCoord[0] % 65) + 1 <= 9)
+						{
+							helpTable[c.Y - 5][inputFirstCoord[0] % 65 + 1] = 3;
+						}
+					}
+					else if (i == firstCoordNumber) //poslednji prolaz
+					{
+						if ((c.Y - 5 - 1 >= 0) && ((inputFirstCoord[0] % 65) - 1 >= 0))
+						{
+							helpTable[c.Y - 5 - 1][inputFirstCoord[0] % 65 - 1] = 3;
+						}
+						if (c.Y - 5 - 1 >= 0)
+						{
+							helpTable[c.Y - 5 - 1][inputFirstCoord[0] % 65] = 3;
+						}
+						if ((c.Y - 5 - 1 >= 0) && ((inputFirstCoord[0] % 65) + 1 <= 9))
+						{
+							helpTable[c.Y - 5 - 1][inputFirstCoord[0] % 65 + 1] = 3;
+						}
+						if ((inputFirstCoord[0] % 65) - 1 >= 0)
+						{
+							helpTable[c.Y - 5][inputFirstCoord[0] % 65 - 1] = 3;
+						}
+						if ((inputFirstCoord[0] % 65) + 1 <= 9)
+						{
+							helpTable[c.Y - 5][inputFirstCoord[0] % 65 + 1] = 3;
+						}
+					}
+					else //srednji prolaz
+					{
+						if ((inputFirstCoord[0] % 65) - 1 >= 0)
+						{
+							helpTable[c.Y - 5][inputFirstCoord[0] % 65 - 1] = 3;
+						}
+						if ((inputFirstCoord[0] % 65) + 1 <= 9)
+						{
+							helpTable[c.Y - 5][inputFirstCoord[0] % 65 + 1] = 3;
+						}
+					}
+					c.Y--;
+				}
+			}
+			else
+			{
+				c.Y = 5 + secondCoordNumber - 1;
+				for (i = firstCoordNumber; i >= secondCoordNumber; i--)
+				{
+					SetConsoleCursorPosition(GetStdHandle(STD_OUTPUT_HANDLE), c);
+					printf("#");
+					helpTable[c.Y - 5][inputFirstCoord[0] % 65] = 1;
+					if (i == secondCoordNumber) //prvi prolaz
+					{
+						if ((c.Y - 5 + 1 <= 9) && ((inputFirstCoord[0] % 65) - 1 >= 0))
+						{
+							helpTable[c.Y - 5 + 1][inputFirstCoord[0] % 65 - 1] = 3;
+						}
+						if (c.Y - 5 + 1 <= 9)
+						{
+							helpTable[c.Y - 5 + 1][inputFirstCoord[0] % 65] = 3;
+						}
+						if ((c.Y - 5 + 1 <= 9) && ((inputFirstCoord[0] % 65) + 1 <= 9))
+						{
+							helpTable[c.Y - 5 + 1][inputFirstCoord[0] % 65 + 1] = 3;
+						}
+						if ((inputFirstCoord[0] % 65) - 1 >= 0)
+						{
+							helpTable[c.Y - 5][inputFirstCoord[0] % 65 - 1] = 3;
+						}
+						if ((inputFirstCoord[0] % 65) + 1 <= 9)
+						{
+							helpTable[c.Y - 5][inputFirstCoord[0] % 65 + 1] = 3;
+						}
+					}
+					else if (i == firstCoordNumber) //poslednji prolaz
+					{
+						if ((c.Y - 5 - 1 >= 0) && ((inputFirstCoord[0] % 65) - 1 >= 0))
+						{
+							helpTable[c.Y - 5 - 1][inputFirstCoord[0] % 65 - 1] = 3;
+						}
+						if (c.Y - 5 - 1 >= 0)
+						{
+							helpTable[c.Y - 5 - 1][inputFirstCoord[0] % 65] = 3;
+						}
+						if ((c.Y - 5 - 1 >= 0) && ((inputFirstCoord[0] % 65) + 1 <= 9))
+						{
+							helpTable[c.Y - 5 - 1][inputFirstCoord[0] % 65 + 1] = 3;
+						}
+						if ((inputFirstCoord[0] % 65) - 1 >= 0)
+						{
+							helpTable[c.Y - 5][inputFirstCoord[0] % 65 - 1] = 3;
+						}
+						if ((inputFirstCoord[0] % 65) + 1 <= 9)
+						{
+							helpTable[c.Y - 5][inputFirstCoord[0] % 65 + 1] = 3;
+						}
+					}
+					else //srednji prolaz
+					{
+						if ((inputFirstCoord[0] % 65) - 1 >= 0)
+						{
+							helpTable[c.Y - 5][inputFirstCoord[0] % 65 - 1] = 3;
+						}
+						if ((inputFirstCoord[0] % 65) + 1 <= 9)
+						{
+							helpTable[c.Y - 5][inputFirstCoord[0] % 65 + 1] = 3;
+						}
+					}
+					c.Y++;
+				}
+			}
+		}
+		else
+		{
+			c.Y = 5 + firstCoordNumber - 1;
+			if (inputSecondCoord[0] > inputFirstCoord[0])
+			{
+				c.X = 5 + (inputSecondCoord[0] % 65) * 4;
+				for (i = inputSecondCoord[0]; i >= inputFirstCoord[0]; i--)
+				{
+					SetConsoleCursorPosition(GetStdHandle(STD_OUTPUT_HANDLE), c);
+					printf("#");
+					helpTable[c.Y - 5][i % 65] = 1;
+					if (i == inputSecondCoord[0]) //prvi kraj broda
+					{
+						if ((c.Y - 5 - 1 >= 0) && (i % 65 + 1 <= 9))
+						{
+							helpTable[c.Y - 5 - 1][i % 65 + 1] = 3;
+						}
+						if (i % 65 + 1 <= 9)
+						{
+							helpTable[c.Y - 5][i % 65 + 1] = 3;
+						}
+						if ((c.Y - 5 + 1 <= 9) && (i % 65 + 1 <= 9))
+						{
+							helpTable[c.Y - 5 + 1][i % 65 + 1] = 3;
+						}
+						if (c.Y - 5 + 1 <= 9)
+						{
+							helpTable[c.Y - 5 + 1][i % 65] = 3;
+						}
+						if (c.Y - 5 - 1 >= 0)
+						{
+							helpTable[c.Y - 5 - 1][i % 65] = 3;
+						}
+
+					}
+					else if (i == inputFirstCoord[0]) //drugi kraj broda
+					{
+						if ((c.Y - 5 - 1 >= 0) && (i % 65 - 1 >= 0))
+						{
+							helpTable[c.Y - 5 - 1][i % 65 - 1] = 3;
+						}
+						if (i % 65 - 1 >= 0)
+						{
+							helpTable[c.Y - 5][i % 65 - 1] = 3;
+						}
+						if ((c.Y - 5 + 1 <= 9) && (i % 65 - 1 >= 0))
+						{
+							helpTable[c.Y - 5 + 1][i % 65 - 1] = 3;
+						}
+						if (c.Y - 5 + 1 <= 9)
+						{
+							helpTable[c.Y - 5 + 1][i % 65] = 3;
+						}
+						if (c.Y - 5 - 1 >= 0)
+						{
+							helpTable[c.Y - 5 - 1][i % 65] = 3;
+						}
+					}
+					else
+					{
+						if (c.Y - 5 + 1 <= 9)
+						{
+							helpTable[c.Y - 5 + 1][i % 65] = 3;
+						}
+						if (c.Y - 5 - 1 >= 0)
+						{
+							helpTable[c.Y - 5 - 1][i % 65] = 3;
+						}
+					}
+					c.X -= 4;
+				}
+			}
+			else
+			{
+				c.X = 5 + (inputFirstCoord[0] % 65) * 4;
+				for (i = inputFirstCoord[0]; i >= inputSecondCoord[0]; i--)
+				{
+					SetConsoleCursorPosition(GetStdHandle(STD_OUTPUT_HANDLE), c);
+					printf("#");
+					helpTable[c.Y - 5][i % 65] = 1;
+					if (i == inputFirstCoord[0]) //prvi kraj broda
+					{
+						if ((c.Y - 5 - 1 >= 0) && (i % 65 + 1 <= 9))
+						{
+							helpTable[c.Y - 5 - 1][i % 65 + 1] = 3;
+						}
+						if (i % 65 + 1 <= 9)
+						{
+							helpTable[c.Y - 5][i % 65 + 1] = 3;
+						}
+						if ((c.Y - 5 + 1 <= 9) && (i % 65 + 1 <= 9))
+						{
+							helpTable[c.Y - 5 + 1][i % 65 + 1] = 3;
+						}
+						if (c.Y - 5 + 1 <= 9)
+						{
+							helpTable[c.Y - 5 + 1][i % 65] = 3;
+						}
+						if (c.Y - 5 - 1 >= 0)
+						{
+							helpTable[c.Y - 5 - 1][i % 65] = 3;
+						}
+
+					}
+					else if (i == inputSecondCoord[0]) //drugi kraj broda
+					{
+						if ((c.Y - 5 - 1 >= 0) && (i % 65 - 1 >= 0))
+						{
+							helpTable[c.Y - 5 - 1][i % 65 - 1] = 3;
+						}
+						if (i % 65 - 1 >= 0)
+						{
+							helpTable[c.Y - 5][i % 65 - 1] = 3;
+						}
+						if ((c.Y - 5 + 1 <= 9) && (i % 65 - 1 >= 0))
+						{
+							helpTable[c.Y - 5 + 1][i % 65 - 1] = 3;
+						}
+						if (c.Y - 5 + 1 <= 9)
+						{
+							helpTable[c.Y - 5 + 1][i % 65] = 3;
+						}
+						if (c.Y - 5 - 1 >= 0)
+						{
+							helpTable[c.Y - 5 - 1][i % 65] = 3;
+						}
+					}
+					else
+					{
+						if (c.Y - 5 + 1 <= 9)
+						{
+							helpTable[c.Y - 5 + 1][i % 65] = 3;
+						}
+						if (c.Y - 5 - 1 >= 0)
+						{
+							helpTable[c.Y - 5 - 1][i % 65] = 3;
+						}
+					}
+					c.X -= 4;
+				}
+			}
+		}
+
+		c.X = 51;
+		c.Y = 7 + counter;
+		SetConsoleCursorPosition(GetStdHandle(STD_OUTPUT_HANDLE), c);
+		if (firstCoordNumber < secondCoordNumber)
+			printf("Position of boat #%d : %s - %s                ", counter, inputFirstCoord, inputSecondCoord);
+		else
+			printf("Position of boat #%d : %s - %s                ", counter, inputSecondCoord, inputFirstCoord);
+		counter++;
+
+		if (counter == 6)
+			break;
+	}
+
+	for (int i = 0; i < 10; i++) {
+		for (j = 0; j < 10; j++) {
+			*(table + i * 10 + j) = helpTable[i][j] == 3 ? 0 : helpTable[i][j] == 1 ? 3 : 0;
+		}
+	}
+
+	hidecursor();
+}
+
 void tableInitialization(char* table) {
 
 	char helpTable[10][10];
@@ -304,7 +727,7 @@ void tableInitialization(char* table) {
 	printf("   _________________________________________     |        must be in a straight line(vertical or\n");		//y = 4
 	printf(" 1 | ~ | ~ | ~ | ~ | ~ | ~ | ~ | ~ | ~ | ~ |     |        horizontal). Boats must be devided \n"); //y = 5
 	printf(" 2 | ~ | ~ | ~ | ~ | ~ | ~ | ~ | ~ | ~ | ~ |     |        by one field all around.\n");			//y = 6
-	printf(" 3 | ~ | ~ | ~ | ~ | ~ | ~ | ~ | ~ | ~ | ~ |     |                                               \n"); //y = 7 ERROR line
+	printf(" 3 | ~ | ~ | ~ | ~ | ~ | ~ | ~ | ~ | ~ | ~ |     | Enter 0 on this entry to get random placement\n"); //y = 7 ERROR line
 	printf(" 4 | ~ | ~ | ~ | ~ | ~ | ~ | ~ | ~ | ~ | ~ |     |\n"); //y = 8    										
 	printf(" 5 | ~ | ~ | ~ | ~ | ~ | ~ | ~ | ~ | ~ | ~ |     |\n"); //y = 9   
 	printf(" 6 | ~ | ~ | ~ | ~ | ~ | ~ | ~ | ~ | ~ | ~ |     |\n"); //y = 10   
@@ -317,6 +740,8 @@ void tableInitialization(char* table) {
 	char inputSecondCoord[4] = "";
 	char input;
 	int counter = 1;
+	bool firstInput = true;
+
 	_COORD c;
 	c.X = 52;
 	c.Y = 7;
@@ -333,11 +758,9 @@ void tableInitialization(char* table) {
 		inputFirstCoord[2] = 0;
 		inputFirstCoord[3] = 0;
 		SetConsoleCursorPosition(GetStdHandle(STD_OUTPUT_HANDLE), c);
-		//scanf_s("%s", &inputFirstCoord, 5);
+
 		while (true)
 		{
-			//getchar();
-
 			if (_kbhit())
 			{
 				input = _getch();
@@ -366,6 +789,23 @@ void tableInitialization(char* table) {
 			}
 
 		}
+
+		if (inputFirstCoord[0] == '0' && firstInput) {
+			randomTableInitialization(table);
+			c.X = 51;
+			c.Y = 7;
+			SetConsoleCursorPosition(GetStdHandle(STD_OUTPUT_HANDLE), c);
+			printf("Boats randomly generated and placed            ");
+			return;
+		}
+		if (firstInput) {
+			firstInput = false;
+			c.X = 51;
+			c.Y = 7;
+			SetConsoleCursorPosition(GetStdHandle(STD_OUTPUT_HANDLE), c);
+			printf("                                              ");
+		}
+		
 
 		if (strlen(inputFirstCoord) < 2 || strlen(inputFirstCoord) > 3)
 		{
@@ -409,12 +849,9 @@ void tableInitialization(char* table) {
 			inputSecondCoord[2] = 0;
 			inputSecondCoord[3] = 0;
 			SetConsoleCursorPosition(GetStdHandle(STD_OUTPUT_HANDLE), c);
-			//scanf_s("%s", &inputSecondCoord, 5);
 
 			while (true)
 			{
-				//getchar();
-
 				if (_kbhit())
 				{
 					input = _getch();
@@ -779,7 +1216,7 @@ void tableInitialization(char* table) {
 							helpTable[c.Y - 5 - 1][i % 65] = 3;
 						}
 					}
-					c.X += 4;
+					c.X -= 4;
 				}
 			}
 		}
@@ -866,7 +1303,7 @@ void userInputFunction(char* userInput, int* counter) {
 	c.Y = 15;
 	char input;
 
-	while (*counter)
+	while (*counter > 0)
 	{
 		if (_kbhit())
 		{
@@ -891,6 +1328,24 @@ void userInputFunction(char* userInput, int* counter) {
 
 		}
 	}
+}
+
+void resetInput() {
+	_COORD c;
+	c.Y = 14;
+	c.X = 0;
+
+	SetConsoleCursorPosition(GetStdHandle(STD_OUTPUT_HANDLE), c);
+	printf("ERROR: Wrong format, see example!");
+
+	c.X = 51;
+	c.Y = 15;
+
+	SetConsoleCursorPosition(GetStdHandle(STD_OUTPUT_HANDLE), c);
+	printf("    ");
+
+	c.X = 51;
+	SetConsoleCursorPosition(GetStdHandle(STD_OUTPUT_HANDLE), c);
 }
 
 void pauseCounterThread(HANDLE hThread) {
@@ -960,6 +1415,9 @@ void tryAgain(char* userInput) {
 	c.X = 51;
 	SetConsoleCursorPosition(GetStdHandle(STD_OUTPUT_HANDLE), c);
 	printf("    ");
+
+	c.X = 51;
+	SetConsoleCursorPosition(GetStdHandle(STD_OUTPUT_HANDLE), c);
 }
 
 void changeTableField(int player, int i, int j, char* table, char element) {

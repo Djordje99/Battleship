@@ -31,6 +31,8 @@ void gameStartUI(char *table);
 
 void userInputFunction(char* userInput, int* counter);
 
+void resetInput();
+
 void pauseCounterThread(HANDLE hThread);
 
 void resumeCounterThread(HANDLE hThread);
