@@ -15,7 +15,10 @@ enum MessageType {
 	DEFEAT,
 	VICTORY,
 	RECONNECT,
-	PLAY
+	PLAY,
+	TURN_PLAY,
+	TURN_WAIT,
+	TURN_INIT_PLAY,
 };
 
 enum ActionPlayer {

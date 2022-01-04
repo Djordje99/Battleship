@@ -39,11 +39,13 @@ CRITICAL_SECTION csTimer;
 char board[10][10];
 char opponentBoard[10][10];
 ActionPlayer player;
-bool isMyTurn, waitingScreenSet;
+bool isMyTurn = false;
+bool waitingScreenSet;
 char userInput[256] = "";
 int counter = 30;
 
 bool reconnected = false;
+bool reconnectedCounter = false;
 
 int main(int argc, char** argv)
 {
@@ -133,7 +135,7 @@ int main(int argc, char** argv)
                 msg = *(message*)receivedMessage;
                 player = msg.player;
 
-                if (player == FIRST)
+                if (msg.argument[0] == 1)
                     isMyTurn = true;
                 else
                     isMyTurn = false;
@@ -172,29 +174,8 @@ int main(int argc, char** argv)
     //send to server matrix
     if (!reconnected) {
         waiting();
-        for (int i = 0; i < 10; i++)
-        {
-            for (int j = 0; j < 10; j++)
-            {
-                opponentBoard[i][j] = 0;
-                char feld = board[i][j];
-                if (feld == 3) {
-                    message msg = FormatMessageStruct(PLACE_BOAT, player, i, j);
-
-                    int iResult = send(connectSocket, (char*)&msg, sizeof(msg), 0);
-
-                    if (iResult == SOCKET_ERROR)
-                    {
-                        printf("send failed with error: %d\n", WSAGetLastError());
-                        return -1;
-                    }
-
-                    //printf("Bytes Sent: %ld\n", iResult);
-
-                    Sleep(20);
-                }
-            }
-        }
+        message msg = FormatMessageStruct(PLACE_BOAT, player, board);
+        int iResult = send(connectSocket, (char*)&msg, sizeof(msg), 0);
 
         iResult = recv(connectSocket, receivedMessage, DEFAULT_BUFLEN, 0);
         if (iResult > 0)
@@ -282,7 +263,10 @@ DWORD WINAPI SendMessageToServer(LPVOID lpParam) {
             */
             memset(userInput, 0, 4);
             set = false;
-            counter = 30;
+
+            if(!reconnectedCounter)
+                counter = 30;
+
             myTurn();
             resumeCounterThread(hCounterThread);
             while (true)
@@ -377,19 +361,23 @@ DWORD WINAPI ReceiveMessageFromServer(LPVOID lpParam) {
             if (recvmsg->player != player && recvmsg->type == MISS)
             {
                 changeTableField(1, recvmsg->argument[0], recvmsg->argument[1], board[0], 1);
+                reconnectedCounter = false;
                 isMyTurn = true;
             }
             else if (recvmsg->player == player && recvmsg->type == HIT)
             {
                 changeTableField(2, recvmsg->argument[0], recvmsg->argument[1], opponentBoard[0], 2);
+                reconnectedCounter = false;
                 isMyTurn = true;
             }
             else if (recvmsg->player == player && recvmsg->type == MISS) {
                 changeTableField(2, recvmsg->argument[0], recvmsg->argument[1], opponentBoard[0], 1);
+                reconnectedCounter = false;
                 isMyTurn = false;
             }
             else  if (recvmsg->player != player && recvmsg->type == HIT) {
                 changeTableField(1, recvmsg->argument[0], recvmsg->argument[1], board[0], 2);
+                reconnectedCounter = false;
                 isMyTurn = false;
             }
             else if (recvmsg->player == player && recvmsg->type == VICTORY) {
@@ -450,6 +438,14 @@ DWORD WINAPI ReceiveMessageFromServer(LPVOID lpParam) {
                         }
                     }
                 }
+            }
+            else if (recvmsg->player == player && recvmsg->type == TURN_PLAY) {
+                counter = recvmsg->argument[0];
+                reconnectedCounter = true;
+                isMyTurn = true;
+            }
+            else if (recvmsg->player == player && recvmsg->type == TURN_WAIT) {
+                isMyTurn = false;
             }
             else {
                 isMyTurn = false;

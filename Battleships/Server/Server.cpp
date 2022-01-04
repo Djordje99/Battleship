@@ -324,14 +324,29 @@ DWORD WINAPI ProducerForClients(LPVOID lpParam) {
             {
                 case PLACE_BOAT:
                 {
-                    arg1 = msg->argument[0];
-                    arg2 = msg->argument[1];
                     hisTurn = FIRST;
 
-                    if (msg->player == FIRST)
-                        boardPlayer1[arg1][arg2] = 3;
-                    if (msg->player == SECOND)
-                        boardPlayer2[arg1][arg2] = 3;
+                    for (int i = 0; i < 10; i++)
+                    {
+                        for (int j = 0; j < 10; j++)
+                        {
+                            if (msg->matrixArgumetn[i][j] == 3) {
+                                //mesto broda
+                                if (msg->player == FIRST)
+                                    boardPlayer1[i][j] = 3;
+                                if (msg->player == SECOND)
+                                    boardPlayer2[i][j] = 3;
+
+                                usedFileds++;
+                            }
+                            else {
+                                if (msg->player == FIRST)
+                                    boardPlayer1[i][j] = 0;
+                                if (msg->player == SECOND)
+                                    boardPlayer2[i][j] = 0;
+                            }
+                        }
+                    }
 
                     if (!gameInitializationInProgress && gameInProgress)
                     {
@@ -339,7 +354,7 @@ DWORD WINAPI ProducerForClients(LPVOID lpParam) {
                     }
                     if (gameInitializationInProgress)
                     {
-                        if (++usedFileds == 34) {
+                        if (usedFileds == 34) {
                             message msg1 = FormatMessageStruct(PLAY, FIRST, 0, 0);
                             message msg2 = FormatMessageStruct(PLAY, SECOND, 0, 0);
                             Enqueue(&msg1, &rootQueuePlayer1);
@@ -369,6 +384,14 @@ DWORD WINAPI ProducerForClients(LPVOID lpParam) {
                                 message msgD = FormatMessageStruct(DEFEAT, SECOND, arg1, arg2);
                                 Enqueue(&msgV, &rootQueuePlayer1);
                                 Enqueue(&msgD, &rootQueuePlayer2);
+
+                                gameInitializationInProgress = false;
+                                gameInProgress = false;
+                                connCountPlayer1 = 0;
+                                connCountPlayer2 = 0;
+
+                                CloseHandle(hCounterThread);
+                                counter = 31;
                             }
                             else {
                                 hisTurn = FIRST;
@@ -396,6 +419,14 @@ DWORD WINAPI ProducerForClients(LPVOID lpParam) {
                                 message msgD = FormatMessageStruct(DEFEAT, FIRST, arg1, arg2);
                                 Enqueue(&msgD, &rootQueuePlayer1);
                                 Enqueue(&msgV, &rootQueuePlayer2);
+
+                                gameInitializationInProgress = false;
+                                gameInProgress = false;
+                                connCountPlayer1 = 0;
+                                connCountPlayer2 = 0;
+
+                                CloseHandle(hCounterThread);
+                                counter = 31;
                             }
                             else {
                                 hisTurn = SECOND;
@@ -443,10 +474,28 @@ DWORD WINAPI ProducerForClients(LPVOID lpParam) {
                 }
                 case PLACE_BOAT_CLIENT_OPONENT:
                 {
-                    if (msg->player == FIRST)
+                    if (msg->player == FIRST) {
                         Enqueue(msg, &rootQueuePlayer1);
-                    if (msg->player == SECOND)
+                        if (hisTurn == FIRST) {
+                            message msgPlay = FormatMessageStruct(TURN_PLAY, FIRST, counter, 0);
+                            Enqueue(&msgPlay, &rootQueuePlayer1);
+                        }
+                        else {
+                            message msgWait = FormatMessageStruct(TURN_WAIT, FIRST, 0, 0);
+                            Enqueue(&msgWait, &rootQueuePlayer1);
+                        }
+                    }
+                    if (msg->player == SECOND) {
                         Enqueue(msg, &rootQueuePlayer2);
+                        if (hisTurn == SECOND) {
+                            message msgPlay = FormatMessageStruct(TURN_PLAY, SECOND, counter, 0);
+                            Enqueue(&msgPlay, &rootQueuePlayer2);
+                        }
+                        else {
+                            message msgWait = FormatMessageStruct(TURN_WAIT, SECOND, 0, 0);
+                            Enqueue(&msgWait, &rootQueuePlayer2);
+                        }
+                    }
                     break;
                 }
                 case RECONNECT:
@@ -465,6 +514,14 @@ DWORD WINAPI ProducerForClients(LPVOID lpParam) {
                         message msgD = FormatMessageStruct(DEFEAT, FIRST, 0, 0);
                         Enqueue(&msgD, &rootQueuePlayer1);
                         Enqueue(&msgV, &rootQueuePlayer2);
+
+                        gameInitializationInProgress = false;
+                        gameInProgress = false;
+                        connCountPlayer1 = 0;
+                        connCountPlayer2 = 0;
+
+                        CloseHandle(hCounterThread);
+                        counter = 31;
                     }
                     else
                     {
@@ -472,6 +529,14 @@ DWORD WINAPI ProducerForClients(LPVOID lpParam) {
                         message msgD = FormatMessageStruct(DEFEAT, SECOND, 0, 0);
                         Enqueue(&msgV, &rootQueuePlayer1);
                         Enqueue(&msgD, &rootQueuePlayer2);
+
+                        gameInitializationInProgress = false;
+                        gameInProgress = false;
+                        connCountPlayer1 = 0;
+                        connCountPlayer2 = 0;
+
+                        CloseHandle(hCounterThread);
+                        counter = 31;
                     }
                     break;
                 }
@@ -587,9 +652,12 @@ DWORD WINAPI RecvFromPlayer1(LPVOID lpParam) {
                                     gameInitializationInProgress = true;
                                 else
                                     gameInProgress = true;
+
                                 msgToSend->player = FIRST;
                                 msgToSend->type = READY;
+                                msgToSend->argument[0] = 1;
                                 Enqueue(msgToSend, &rootQueueRecv);
+
                             }
                             else {
                                 msgToSend = (message*)malloc(sizeof(message));
