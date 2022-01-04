@@ -144,11 +144,13 @@
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
+    <ClCompile Include="BotFunctions.cpp" />
     <ClCompile Include="GameHelper.cpp" />
     <ClCompile Include="Queue.cpp" />
     <ClCompile Include="Server.cpp" />
   </ItemGroup>
   <ItemGroup>
+    <ClInclude Include="BotFunctions.h" />
     <ClInclude Include="GameHelper.h" />
     <ClInclude Include="Queue.h" />
   </ItemGroup>
