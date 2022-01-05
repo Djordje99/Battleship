@@ -47,6 +47,9 @@ DWORD hCounterThreadID;
 CRITICAL_SECTION csTimer;
 int counter = 31;
 
+bool closeHandlesPlayer1 = false;
+bool closeHandlesPlayer2 = false;
+
 bool gameInProgress = false;
 bool gameInitializationInProgress = false;
 
@@ -195,6 +198,8 @@ DWORD WINAPI Requests(LPVOID lpParam) {
 
     int socketSelected = 0;
 
+    InitializeCriticalSection(&csTimer);
+
     while (true) {
         if (curentClientCount < MAX_CLIENTS + 1)
             FD_SET(listenSocket, &readfds);
@@ -283,18 +288,26 @@ DWORD WINAPI Requests(LPVOID lpParam) {
                     return 1;
                 }
 
+                if (curentClientCount == 0 && gameInProgress == false) {
+                    hCounterThread = CreateThread(NULL, 0, &counterFunc, &counter, 0, &hCounterThreadID);
+                    SuspendThread(hCounterThread);
+                }
+
                 curentClientCount++;
 
                 if (socketSelected == 0)
                 {
+                    CloseHandle(threadSendPlayer1);
+                    CloseHandle(threadRecvPlayer1);
+                    closeHandlesPlayer1 = false;
                     threadSendPlayer1 = CreateThread(NULL, 0, &SendToPlayer1, NULL, 0, &threadSendPlayer1ID);
                     threadRecvPlayer1 = CreateThread(NULL, 0, &RecvFromPlayer1, NULL, 0, &threadRecvPlayer1ID);
-                    hCounterThread = CreateThread(NULL, 0, &counterFunc, &counter, 0, &hCounterThreadID);
-                    SuspendThread(hCounterThread);
-                    InitializeCriticalSection(&csTimer);
                 }
                 if (socketSelected == 1)
                 {
+                    CloseHandle(threadSendPlayer2);
+                    CloseHandle(threadRecvPlayer2);
+                    closeHandlesPlayer2 = false;
                     threadSendPlayer2 = CreateThread(NULL, 0, &SendToPlayer2, NULL, 0, &threadSendPlayer2ID);
                     threadRecvPlayer2 = CreateThread(NULL, 0, &RecvFromPlayer2, NULL, 0, &threadRecvPlayer2ID);
                 }
@@ -573,7 +586,7 @@ DWORD WINAPI ProducerForClients(LPVOID lpParam) {
 #pragma region SendToPlayer
 
 DWORD WINAPI SendToPlayer1(LPVOID lpParam) {
-    while (true && acceptedSocket[0] != INVALID_SOCKET) {
+    while (!closeHandlesPlayer1 && acceptedSocket[0] != INVALID_SOCKET) {
         if (QueueCount(rootQueuePlayer1) != 0) {
             message sendP1 = *Dequeue(&rootQueuePlayer1);
 
@@ -594,7 +607,7 @@ DWORD WINAPI SendToPlayer1(LPVOID lpParam) {
 }
 
 DWORD WINAPI SendToPlayer2(LPVOID lpParam) {
-    while (true && acceptedSocket[1] != INVALID_SOCKET) {
+    while (!closeHandlesPlayer2 && acceptedSocket[1] != INVALID_SOCKET) {
         if (QueueCount(rootQueuePlayer2) != 0) {
             message sendP2 = *Dequeue(&rootQueuePlayer2);
 
@@ -627,7 +640,7 @@ DWORD WINAPI RecvFromPlayer1(LPVOID lpParam) {
     timeval timeVal;
     timeVal.tv_sec = 1;
     timeVal.tv_usec = 0;
-    while (true && acceptedSocket[0] != INVALID_SOCKET) {
+    while (!closeHandlesPlayer1 && acceptedSocket[0] != INVALID_SOCKET) {
         FD_SET(acceptedSocket[0], &readfds);
 
         int result = select(0, &readfds, NULL, NULL, &timeVal);
@@ -726,6 +739,7 @@ DWORD WINAPI RecvFromPlayer1(LPVOID lpParam) {
                     printf("Connection with client closed.\n");
                     closesocket(acceptedSocket[0]);
                     acceptedSocket[0] = INVALID_SOCKET;
+                    closeHandlesPlayer1 = true;
                     curentClientCount--;
                 }
                 else
@@ -734,6 +748,7 @@ DWORD WINAPI RecvFromPlayer1(LPVOID lpParam) {
                     printf("recv failed with error: %d\n", WSAGetLastError());
                     closesocket(acceptedSocket[0]);
                     acceptedSocket[0] = INVALID_SOCKET;
+                    closeHandlesPlayer1 = true;
                     curentClientCount--;
                     break;
                 }
@@ -756,7 +771,7 @@ DWORD WINAPI RecvFromPlayer2(LPVOID lpParam) {
     timeval timeVal;
     timeVal.tv_sec = 1;
     timeVal.tv_usec = 0;
-    while (true && acceptedSocket[1] != INVALID_SOCKET) {
+    while (!closeHandlesPlayer2 && acceptedSocket[1] != INVALID_SOCKET) {
         FD_SET(acceptedSocket[1], &readfds);
 
         int result = select(0, &readfds, NULL, NULL, &timeVal);
@@ -852,6 +867,7 @@ DWORD WINAPI RecvFromPlayer2(LPVOID lpParam) {
                     printf("Connection with client closed.\n");
                     closesocket(acceptedSocket[1]);
                     acceptedSocket[1] = INVALID_SOCKET;
+                    closeHandlesPlayer2 = true;
                     curentClientCount--;
                 }
                 else
@@ -860,6 +876,7 @@ DWORD WINAPI RecvFromPlayer2(LPVOID lpParam) {
                     printf("recv failed with error: %d\n", WSAGetLastError());
                     closesocket(acceptedSocket[1]);
                     acceptedSocket[1] = INVALID_SOCKET;
+                    closeHandlesPlayer2 = true;
                     curentClientCount--;
                     break;
                 }
