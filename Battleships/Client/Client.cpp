@@ -41,7 +41,7 @@ char board[10][10];
 char opponentBoard[10][10];
 ActionPlayer player;
 bool isMyTurn = false;
-bool waitingScreenSet;
+bool waitingScreenSet, stopCounter = false;
 char userInput[256] = "";
 int counter = 30;
 
@@ -58,7 +58,7 @@ int main(int argc, char** argv)
 
     int iResult;
 
-    DWORD threadSenderID, threadReceiverID;
+    DWORD threadSenderID, threadReceiverID, hCounterThreadID;
     HANDLE threadSender, threadReceiver;
 
     errorSemaphore = CreateSemaphore(NULL, 0, 1, NULL);
@@ -107,19 +107,16 @@ int main(int argc, char** argv)
     iResult = recv(connectSocket, receivedMessage, DEFAULT_BUFLEN, 0);
     if (iResult > 0)
     {
-        if (strcmp(receivedMessage, "true") == 0)
+        if ((strcmp(receivedMessage, "true1") == 0) || (strcmp(receivedMessage, "true2") == 0))
         {
             startingMenu();
             int gameType = chooseGameType();
-            //message msg = FormatMessageStruct(CHOOSE_GAME, NONE, (char*)gameType, NULL);
-            message msg{
-                msg.type = CHOOSE_GAME,
-                msg.player = NONE,
-                //msg.argumet = htonl(gameType),
-                msg.argument[0] = 0,
-                //msg.aditionalArgumet[0] = 0,
-            };
-            sprintf(msg.argument, "%d", gameType);
+            message msg;
+            if (receivedMessage[4] == '1')
+                msg = FormatMessageStruct(CHOOSE_GAME, FIRST, gameType + '0', 0);
+            else
+                msg = FormatMessageStruct(CHOOSE_GAME, SECOND, gameType + '0', 0);
+
             int iResult = send(connectSocket, (char*)&msg, sizeof(msg), 0);
             if (iResult == SOCKET_ERROR)
             {
@@ -128,6 +125,7 @@ int main(int argc, char** argv)
                 closesocket(connectSocket);
                 return 5;
             }
+
 
             iResult = recv(connectSocket, receivedMessage, DEFAULT_BUFLEN, 0);
             if (iResult > 0)
@@ -238,7 +236,7 @@ bool InitializeWindowsSockets()
 DWORD WINAPI SendMessageToServer(LPVOID lpParam) {
     bool set = false;
     bool stop = false;
-    while (true) {
+    while (!stopCounter) {
         if (isMyTurn) {
             /*
             printf("Type cordinate to attack enemy boat; format [0-9, 0-9]: ");
@@ -258,6 +256,7 @@ DWORD WINAPI SendMessageToServer(LPVOID lpParam) {
                 userInputFunction(userInput, &counter);
                 if (counter == 0) {
                     stop = true;
+                    Sleep(200);
                     break;
                 }
                 else {
@@ -340,6 +339,7 @@ DWORD WINAPI SendMessageToServer(LPVOID lpParam) {
         Sleep(10);
     }
 
+    resumeCounterThread(hCounterThread);
     return 0;
 }
 
@@ -377,18 +377,22 @@ DWORD WINAPI ReceiveMessageFromServer(LPVOID lpParam) {
                 isMyTurn = false;
             }
             else if (recvmsg->player == player && recvmsg->type == VICTORY) {
+                stopCounter = true;
                 isMyTurn = false;
                 Sleep(100);
                 victory();
                 pressEnterToContinue();
                 ReleaseSemaphore(errorSemaphore, 1, NULL);
+                break;
             }
             else if (recvmsg->player == player && recvmsg->type == DEFEAT) {
+                stopCounter = true;
                 isMyTurn = false;
                 Sleep(100);
                 defeat();
                 pressEnterToContinue();
                 ReleaseSemaphore(errorSemaphore, 1, NULL);
+                break;
             }
             else if (recvmsg->player == player && recvmsg->type == PLACE_BOAT_CLIENT) {
                 for (int i = 0; i < 10; i++)
@@ -462,15 +466,19 @@ DWORD WINAPI ReceiveMessageFromServer(LPVOID lpParam) {
 DWORD WINAPI counterFunc(LPVOID lpParam) {
     int* counter = (int*)lpParam;
     int pom = 0;
-    while (true) {
+    while (!stopCounter) {
         while (pom != 100) {
             Sleep(10);
+            if (stopCounter)
+                return 0;
             pom++;
         }
 
         EnterCriticalSection(&csTimer);
-        if (*counter == 0)
-            break;
+        if (*counter == 0) {
+            LeaveCriticalSection(&csTimer);
+            continue;
+        }
         *counter = (*counter)--;
         updateTimerUI(*counter);
         LeaveCriticalSection(&csTimer);

@@ -30,8 +30,9 @@ message* Dequeue(element **root) {
 		return NULL;
 	}
 
-
+	LeaveCriticalSection(&cs);
 	int count = QueueCount(*root);
+	EnterCriticalSection(&cs);
 	element* temp = *root;
 
 	for (int i = 0; i < count - 2; i++)
@@ -66,6 +67,7 @@ void InitQueue(element** root) {
 }
 
 int QueueCount(element* root) {
+	EnterCriticalSection(&cs);
 	int count = 0;
 	element* temp = root;
 
@@ -74,5 +76,6 @@ int QueueCount(element* root) {
 		temp = temp->next;
 	}
 
+	LeaveCriticalSection(&cs);
 	return count;
 }

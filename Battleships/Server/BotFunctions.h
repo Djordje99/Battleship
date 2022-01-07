@@ -2,7 +2,7 @@
 #ifndef BOTFUNC
 #define BOTFUNC
 
-void botAim(char* aimingTable);
+char* botAim(char* aimingTable);
 
 void botTableInitialization(char* table);
 

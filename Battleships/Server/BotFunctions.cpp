@@ -6,7 +6,7 @@
 #include <wincrypt.h>
 #include <stdlib.h>
 
-void botAim(char* aimingTable) {
+char* botAim(char* aimingTable) {
 	HCRYPTPROV   hCryptProv;
 	BYTE         pbData[2];
 
@@ -39,6 +39,13 @@ void botAim(char* aimingTable) {
 
 		validAim = true;
 	}
+
+	char* ret = (char*)malloc(3);
+	*(ret + 0) = (char)i;
+	*(ret + 1) = (char)j;
+	*(ret + 2) = '\0';
+
+	return ret;
 }
 
 bool checkIfFieldIsAvailable(char* table, char* coordinate, int length) {
@@ -474,7 +481,7 @@ void botTableInitialization(char* table) {
 
 	for (int i = 0; i < 10; i++) {
 		for (j = 0; j < 10; j++) {
-			*(table + i * 10 + j) = helpTable[i][j] == 3 ? 0 : helpTable[i][j];
+			*(table + i * 10 + j) = helpTable[i][j] == 3 ? 0 : helpTable[i][j] == 1 ? 3 : 0;
 		}
 	}
 

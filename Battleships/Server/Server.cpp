@@ -10,6 +10,7 @@
 #include "../Common/MessageFormater.cpp"
 #include "../Server/BotFunctions.h"
 #include "GameHelper.h"
+#define SAFE_DELETE_HANDLE(a) if(a){if(CloseHandle(a))printf("closed");} 
 
 #define DEFAULT_BUFLEN 512
 #define DEFAULT_PORT "27016"
@@ -22,6 +23,7 @@ DWORD WINAPI SendToPlayer1(LPVOID lpParam);
 DWORD WINAPI SendToPlayer2(LPVOID lpParam);
 DWORD WINAPI RecvFromPlayer1(LPVOID lpParam);
 DWORD WINAPI RecvFromPlayer2(LPVOID lpParam);
+DWORD WINAPI Bot(LPVOID lpParam);
 DWORD WINAPI counterFunc(LPVOID lpParam);
  
 SOCKET listenSocket = INVALID_SOCKET;
@@ -41,11 +43,11 @@ HANDLE errorSemaphore, threadSendPlayer1, threadSendPlayer2;
 DWORD threadSendPlayer1ID, threadSendPlayer2ID;
 HANDLE threadRecvPlayer1, threadRecvPlayer2;
 DWORD threadRecvPlayer1ID, threadRecvPlayer2ID;
-HANDLE hCounterThread;
-DWORD hCounterThreadID;
+HANDLE hCounterThread, hBot;
+DWORD hCounterThreadID, hBotID;
 
 CRITICAL_SECTION csTimer;
-int counter = 31;
+int counter = 32;
 
 bool closeHandlesPlayer1 = false;
 bool closeHandlesPlayer2 = false;
@@ -277,8 +279,10 @@ DWORD WINAPI Requests(LPVOID lpParam) {
                 unsigned long mode = 1;
                 iResult = ioctlsocket(acceptedSocket[socketSelected], FIONBIO, &mode);
 
+                char msg[5];
+                sprintf(msg, "true%d", socketSelected + 1);
                 //welcome message
-                iResult = send(acceptedSocket[socketSelected], "true", (int)strlen("true") + 1, 0);
+                iResult = send(acceptedSocket[socketSelected], msg, (int)strlen(msg) + 1, 0);
 
                 if (iResult == SOCKET_ERROR)
                 {
@@ -297,16 +301,20 @@ DWORD WINAPI Requests(LPVOID lpParam) {
 
                 if (socketSelected == 0)
                 {
-                    CloseHandle(threadSendPlayer1);
-                    CloseHandle(threadRecvPlayer1);
+                    //CloseHandle(threadSendPlayer1);
+                    //SAFE_DELETE_HANDLE(threadRecvPlayer1);
+                    //CloseHandle(threadRecvPlayer1);
+                    //SAFE_DELETE_HANDLE(threadRecvPlayer1);
                     closeHandlesPlayer1 = false;
                     threadSendPlayer1 = CreateThread(NULL, 0, &SendToPlayer1, NULL, 0, &threadSendPlayer1ID);
                     threadRecvPlayer1 = CreateThread(NULL, 0, &RecvFromPlayer1, NULL, 0, &threadRecvPlayer1ID);
                 }
                 if (socketSelected == 1)
                 {
-                    CloseHandle(threadSendPlayer2);
-                    CloseHandle(threadRecvPlayer2);
+                    //CloseHandle(threadSendPlayer2);
+                    //SAFE_DELETE_HANDLE(threadSendPlayer2);
+                    //CloseHandle(threadRecvPlayer2);
+                    //SAFE_DELETE_HANDLE(threadRecvPlayer2);
                     closeHandlesPlayer2 = false;
                     threadSendPlayer2 = CreateThread(NULL, 0, &SendToPlayer2, NULL, 0, &threadSendPlayer2ID);
                     threadRecvPlayer2 = CreateThread(NULL, 0, &RecvFromPlayer2, NULL, 0, &threadRecvPlayer2ID);
@@ -326,6 +334,7 @@ DWORD WINAPI Requests(LPVOID lpParam) {
 
 DWORD WINAPI ProducerForClients(LPVOID lpParam) {
     ActionPlayer hisTurn = FIRST;
+    ActionPlayer inGameAgainsBot = NONE;
     int usedFileds = 0;
     while (true) {
         if (QueueCount(rootQueueRecv) != 0) {
@@ -336,6 +345,114 @@ DWORD WINAPI ProducerForClients(LPVOID lpParam) {
             //PLACE_BOAT init switch
             switch (msg->type)
             {
+                case CHOOSE_GAME:
+                {
+                    if (gameInProgress == false)
+                    {
+                        message msgToSend;
+                        if (strcmp(msg->argument, "1") == 0 && gameInitializationInProgress == false)
+                        {
+                            gameInProgress = true;
+                            msgToSend = FormatMessageStruct(READY, msg->player, msg->player == FIRST ? 1 : 0, 0);
+
+                        }
+                        else if (strcmp(msg->argument, "2") == 0)
+                        {
+                            msgToSend = FormatMessageStruct(READY, msg->player, msg->player == FIRST ? 1 : 0, 0);
+                            if (gameInitializationInProgress == false)
+                                gameInitializationInProgress = true;
+                            else
+                                gameInProgress = true;  
+                        }
+                        else
+                        {
+                            msgToSend = FormatMessageStruct(BUSY, msg->player, 0, 0);
+                        }
+
+                        if (msg->player == FIRST)
+                            Enqueue(&msgToSend, &rootQueuePlayer1);
+                        else
+                            Enqueue(&msgToSend, &rootQueuePlayer2);
+                    }
+                    else if (connCountPlayer1 > 1 && gameInProgress) {
+                        if ((!gameInitializationInProgress && msg->player == inGameAgainsBot) || gameInitializationInProgress)
+                        {
+                            message msgConn = FormatMessageStruct(RECONNECT, msg->player, 0, 0);
+                            if (msg->player == FIRST)
+                                Enqueue(&msgConn, &rootQueuePlayer1);
+                            else
+                                Enqueue(&msgConn, &rootQueuePlayer2);
+
+                            Sleep(20);
+
+                            message msgMatrix = FormatMessageStruct(PLACE_BOAT_CLIENT, msg->player, msg->player == FIRST ? boardPlayer1 : boardPlayer2);
+                            if (msg->player == FIRST)
+                                Enqueue(&msgMatrix, &rootQueuePlayer1);
+                            else
+                                Enqueue(&msgMatrix, &rootQueuePlayer2);
+
+                            Sleep(20);
+
+                            message msgMatrixOponent = FormatMessageStruct(PLACE_BOAT_CLIENT_OPONENT, msg->player, msg->player == FIRST ? boardPlayer2 : boardPlayer1);
+                            if (msg->player == FIRST)
+                                Enqueue(&msgMatrixOponent, &rootQueuePlayer1);
+                            else
+                                Enqueue(&msgMatrixOponent, &rootQueuePlayer2);
+
+                            Sleep(20);
+
+                            if (msg->player == FIRST) {
+                                if (hisTurn == FIRST) {
+                                    message msgPlay = FormatMessageStruct(TURN_PLAY, FIRST, counter - 2, 0);
+                                    Enqueue(&msgPlay, &rootQueuePlayer1);
+                                }
+                                else {
+                                    message msgWait = FormatMessageStruct(TURN_WAIT, FIRST, 0, 0);
+                                    Enqueue(&msgWait, &rootQueuePlayer1);
+                                }
+                            }
+                            if (msg->player == SECOND) {
+                                if (hisTurn == SECOND) {
+                                    message msgPlay = FormatMessageStruct(TURN_PLAY, SECOND, counter - 2, 0);
+                                    Enqueue(&msgPlay, &rootQueuePlayer2);
+                                }
+                                else {
+                                    message msgWait = FormatMessageStruct(TURN_WAIT, SECOND, 0, 0);
+                                    Enqueue(&msgWait, &rootQueuePlayer2);
+                                }
+                            }
+                        }
+                    }
+                    else
+                    {
+                        message newMsg = FormatMessageStruct(BUSY, msg->player, 0, 0);
+                        if (msg->player == FIRST) {
+                            //Enqueue(&newMsg, &rootQueuePlayer1);
+                            iResult = send(acceptedSocket[0], (char*)&newMsg, sizeof(newMsg), 0);
+                            closeHandlesPlayer1 = true;
+                            if (iResult == SOCKET_ERROR)
+                            {
+                                printf("send failed with error: %d\n", WSAGetLastError());
+                                closesocket(acceptedSocket[0]);
+                                WSACleanup();
+                                //return 1;
+                            }
+                        }
+                        else {
+                            //Enqueue(&newMsg, &rootQueuePlayer2);
+                            iResult = send(acceptedSocket[1], (char*)&newMsg, sizeof(newMsg), 0);
+                            closeHandlesPlayer2 = true;
+                            if (iResult == SOCKET_ERROR)
+                            {
+                                printf("send failed with error: %d\n", WSAGetLastError());
+                                closesocket(acceptedSocket[0]);
+                                WSACleanup();
+                                //return 1;
+                            }
+                        }
+                    }
+                    break;
+                }
                 case PLACE_BOAT:
                 {
                     hisTurn = FIRST;
@@ -365,6 +482,24 @@ DWORD WINAPI ProducerForClients(LPVOID lpParam) {
                     if (!gameInitializationInProgress && gameInProgress)
                     {
                         //bot game
+                        if (msg->player == FIRST) {
+                            hBot = CreateThread(NULL, 0, &Bot, (LPVOID)2, 0, &hBotID);
+                            //Sleep(1000);
+                            message msg1 = FormatMessageStruct(PLAY, FIRST, 0, 0);
+                            Enqueue(&msg1, &rootQueuePlayer1);
+                            usedFileds = 0;
+                            inGameAgainsBot = FIRST;
+                            ResumeThread(hCounterThread);
+                        }
+                        else {
+                            hBot = CreateThread(NULL, 0, &Bot, (LPVOID)1, 0, &hBotID);
+                            //Sleep(1000);
+                            message msg2 = FormatMessageStruct(PLAY, SECOND, 0, 0);
+                            Enqueue(&msg2, &rootQueuePlayer2);
+                            usedFileds = 0;
+                            inGameAgainsBot = SECOND;
+                            ResumeThread(hCounterThread);
+                        }
                     }
                     if (gameInitializationInProgress)
                     {
@@ -399,13 +534,37 @@ DWORD WINAPI ProducerForClients(LPVOID lpParam) {
                                 Enqueue(&msgV, &rootQueuePlayer1);
                                 Enqueue(&msgD, &rootQueuePlayer2);
 
-                                gameInitializationInProgress = false;
-                                gameInProgress = false;
                                 connCountPlayer1 = 0;
                                 connCountPlayer2 = 0;
 
-                                CloseHandle(hCounterThread);
-                                counter = 31;
+                                Sleep(500);
+                                if (!gameInitializationInProgress && gameInProgress)
+                                {
+                                    if (inGameAgainsBot == FIRST)
+                                    {
+                                        SAFE_DELETE_HANDLE(threadRecvPlayer1);
+                                        SAFE_DELETE_HANDLE(threadSendPlayer1);
+                                    }
+                                    else
+                                    {
+                                        SAFE_DELETE_HANDLE(threadRecvPlayer2);
+                                        SAFE_DELETE_HANDLE(threadSendPlayer2);
+                                    }
+                                    SAFE_DELETE_HANDLE(hCounterThread);
+                                    SAFE_DELETE_HANDLE(hBot);
+                                }
+                                else
+                                {
+                                    SAFE_DELETE_HANDLE(threadRecvPlayer1);
+                                    SAFE_DELETE_HANDLE(threadSendPlayer1);
+                                    SAFE_DELETE_HANDLE(threadRecvPlayer2);
+                                    SAFE_DELETE_HANDLE(threadSendPlayer2);
+                                    SAFE_DELETE_HANDLE(hCounterThread);
+                                }
+
+                                gameInitializationInProgress = false;
+                                gameInProgress = false;
+                                counter = 32;
                             }
                             else {
                                 hisTurn = FIRST;
@@ -434,13 +593,37 @@ DWORD WINAPI ProducerForClients(LPVOID lpParam) {
                                 Enqueue(&msgD, &rootQueuePlayer1);
                                 Enqueue(&msgV, &rootQueuePlayer2);
 
-                                gameInitializationInProgress = false;
-                                gameInProgress = false;
                                 connCountPlayer1 = 0;
                                 connCountPlayer2 = 0;
 
-                                CloseHandle(hCounterThread);
-                                counter = 31;
+                                Sleep(500);
+                                if (!gameInitializationInProgress && gameInProgress)
+                                {
+                                    if (inGameAgainsBot == FIRST)
+                                    {
+                                        SAFE_DELETE_HANDLE(threadRecvPlayer1);
+                                        SAFE_DELETE_HANDLE(threadSendPlayer1);
+                                    }
+                                    else
+                                    {
+                                        SAFE_DELETE_HANDLE(threadRecvPlayer2);
+                                        SAFE_DELETE_HANDLE(threadSendPlayer2);
+                                    }
+                                    SAFE_DELETE_HANDLE(hCounterThread);
+                                    SAFE_DELETE_HANDLE(hBot);
+                                }
+                                else
+                                {
+                                    SAFE_DELETE_HANDLE(threadRecvPlayer1);
+                                    SAFE_DELETE_HANDLE(threadSendPlayer1);
+                                    SAFE_DELETE_HANDLE(threadRecvPlayer2);
+                                    SAFE_DELETE_HANDLE(threadSendPlayer2);
+                                    SAFE_DELETE_HANDLE(hCounterThread);
+                                }
+
+                                gameInitializationInProgress = false;
+                                gameInProgress = false;
+                                counter = 32;
                             }
                             else {
                                 hisTurn = SECOND;
@@ -457,7 +640,7 @@ DWORD WINAPI ProducerForClients(LPVOID lpParam) {
                         }
                     }
 
-                    counter = 31;
+                    counter = 32;
                     LeaveCriticalSection(&csTimer);
 
                     break;
@@ -492,27 +675,23 @@ DWORD WINAPI ProducerForClients(LPVOID lpParam) {
                     {
                         if (hisTurn == FIRST) {
                             hisTurn = SECOND;
-                            //EnterCriticalSection(&csTimer);
                             message msgPlay = FormatMessageStruct(TURN_PLAY, SECOND, 30, 0);
                             message msgWait = FormatMessageStruct(TURN_WAIT, FIRST, 0, 0);
                             Enqueue(&msgWait, &rootQueuePlayer1);
                             Enqueue(&msgPlay, &rootQueuePlayer2);
-                            //LeaveCriticalSection(&csTimer);
                         }
                         else {
                             hisTurn = FIRST;
-                            //EnterCriticalSection(&csTimer);
                             message msgPlay = FormatMessageStruct(TURN_PLAY, FIRST, 30, 0);
                             message msgWait = FormatMessageStruct(TURN_WAIT, SECOND, 0, 0);
                             Enqueue(&msgWait, &rootQueuePlayer2);
                             Enqueue(&msgPlay, &rootQueuePlayer1);
-                            //LeaveCriticalSection(&csTimer);
                         }
                     }
                     if (msg->player == FIRST) {
                         Enqueue(msg, &rootQueuePlayer1);
                         if (hisTurn == FIRST) {
-                            message msgPlay = FormatMessageStruct(TURN_PLAY, FIRST, counter, 0);
+                            message msgPlay = FormatMessageStruct(TURN_PLAY, FIRST, counter - 2, 0);
                             Enqueue(&msgPlay, &rootQueuePlayer1);
                         }
                         else {
@@ -523,7 +702,7 @@ DWORD WINAPI ProducerForClients(LPVOID lpParam) {
                     if (msg->player == SECOND) {
                         Enqueue(msg, &rootQueuePlayer2);
                         if (hisTurn == SECOND) {
-                            message msgPlay = FormatMessageStruct(TURN_PLAY, SECOND, counter, 0);
+                            message msgPlay = FormatMessageStruct(TURN_PLAY, SECOND, counter - 2, 0);
                             Enqueue(&msgPlay, &rootQueuePlayer2);
                         }
                         else {
@@ -550,13 +729,38 @@ DWORD WINAPI ProducerForClients(LPVOID lpParam) {
                         Enqueue(&msgD, &rootQueuePlayer1);
                         Enqueue(&msgV, &rootQueuePlayer2);
 
-                        gameInitializationInProgress = false;
-                        gameInProgress = false;
+                        
                         connCountPlayer1 = 0;
                         connCountPlayer2 = 0;
 
-                        CloseHandle(hCounterThread);
-                        counter = 31;
+                        Sleep(500);
+                        if (!gameInitializationInProgress && gameInProgress)
+                        {
+                            if (inGameAgainsBot == FIRST)
+                            {
+                                SAFE_DELETE_HANDLE(threadRecvPlayer1);
+                                SAFE_DELETE_HANDLE(threadSendPlayer1);
+                            }
+                            else
+                            {
+                                SAFE_DELETE_HANDLE(threadRecvPlayer2);
+                                SAFE_DELETE_HANDLE(threadSendPlayer2);
+                            }
+                            SAFE_DELETE_HANDLE(hCounterThread);
+                            SAFE_DELETE_HANDLE(hBot);
+                        }
+                        else
+                        {
+                            SAFE_DELETE_HANDLE(threadRecvPlayer1);
+                            SAFE_DELETE_HANDLE(threadSendPlayer1);
+                            SAFE_DELETE_HANDLE(threadRecvPlayer2);
+                            SAFE_DELETE_HANDLE(threadSendPlayer2);
+                            SAFE_DELETE_HANDLE(hCounterThread);
+                        }
+
+                        gameInitializationInProgress = false;
+                        gameInProgress = false;
+                        counter = 32;
                     }
                     else
                     {
@@ -565,13 +769,38 @@ DWORD WINAPI ProducerForClients(LPVOID lpParam) {
                         Enqueue(&msgV, &rootQueuePlayer1);
                         Enqueue(&msgD, &rootQueuePlayer2);
 
-                        gameInitializationInProgress = false;
-                        gameInProgress = false;
                         connCountPlayer1 = 0;
                         connCountPlayer2 = 0;
 
-                        CloseHandle(hCounterThread);
-                        counter = 31;
+                        //CloseHandle(hCounterThread);
+                        Sleep(500);
+                        if (!gameInitializationInProgress && gameInProgress)
+                        {
+                            if (inGameAgainsBot == FIRST)
+                            {
+                                SAFE_DELETE_HANDLE(threadRecvPlayer1);
+                                SAFE_DELETE_HANDLE(threadSendPlayer1);
+                            }
+                            else
+                            {
+                                SAFE_DELETE_HANDLE(threadRecvPlayer2);
+                                SAFE_DELETE_HANDLE(threadSendPlayer2);
+                            }
+                            SAFE_DELETE_HANDLE(hCounterThread);
+                            SAFE_DELETE_HANDLE(hBot);
+                        }
+                        else
+                        {
+                            SAFE_DELETE_HANDLE(threadRecvPlayer1);
+                            SAFE_DELETE_HANDLE(threadSendPlayer1);
+                            SAFE_DELETE_HANDLE(threadRecvPlayer2);
+                            SAFE_DELETE_HANDLE(threadSendPlayer2);
+                            SAFE_DELETE_HANDLE(hCounterThread);
+                        }
+
+                        gameInitializationInProgress = false;
+                        gameInProgress = false;
+                        counter = 32;
                     }
                     break;
                 }
@@ -663,24 +892,22 @@ DWORD WINAPI RecvFromPlayer1(LPVOID lpParam) {
                 {
                     recvbuf[iResult] = '\0';
                     recvmsg = (message*)recvbuf;
-
+                    /*
                     if (recvmsg->type == CHOOSE_GAME)
                     {
                         if (gameInProgress == false)
                         {
                             if (strcmp(recvmsg->argument, "1") == 0 && gameInitializationInProgress == false)
-                                //if (ntohl(recvmsg->argumet) == 1 && gameInitializationInProgress == false)
                             {
                                 gameInProgress = true;
                                 msgToSend = (message*)malloc(sizeof(message));
                                 msgToSend->type = READY;
                                 msgToSend->player = FIRST;
-
+                                msgToSend->argument[0] = 1;
                                 Enqueue(msgToSend, &rootQueueRecv);
 
                             }
                             else if (strcmp(recvmsg->argument, "2") == 0)
-                                //if (ntohl(recvmsg->argumet) == 2)
                             {
                                 msgToSend = (message*)malloc(sizeof(message));
                                 if (gameInitializationInProgress == false)
@@ -732,6 +959,9 @@ DWORD WINAPI RecvFromPlayer1(LPVOID lpParam) {
                         Enqueue(recvmsg, &rootQueueRecv);
                         printf("Message received from client and queued in queue!\n");
                     }
+                    */
+                    Enqueue(recvmsg, &rootQueueRecv);
+                    printf("Message received from client and queued in queue!\n");
                 }
                 else if (iResult == 0)
                 {
@@ -794,7 +1024,7 @@ DWORD WINAPI RecvFromPlayer2(LPVOID lpParam) {
                 {
                     recvbuf[iResult] = '\0';
                     recvmsg = (message*)recvbuf;
-
+                    /*
                     if (recvmsg->type == CHOOSE_GAME)
                     {
                         if (gameInProgress == false)
@@ -829,7 +1059,7 @@ DWORD WINAPI RecvFromPlayer2(LPVOID lpParam) {
                                 Enqueue(msgToSend, &rootQueueRecv);
                             }
                         }
-                        else if (connCountPlayer2 > 1 && gameInProgress) {
+                        else if (connCountPlayer2 > 1 && gameInProgress && gameInitializationInProgress) {
                             message msgConn = FormatMessageStruct(RECONNECT, SECOND, 0, 0);
                             Enqueue(&msgConn, &rootQueueRecv);
 
@@ -860,6 +1090,10 @@ DWORD WINAPI RecvFromPlayer2(LPVOID lpParam) {
                         Enqueue(recvmsg, &rootQueueRecv);
                         printf("Message received from client and queued in queue\n");
                     }
+                    */
+                    //stavljanje u queue
+                    Enqueue(recvmsg, &rootQueueRecv);
+                    printf("Message received from client and queued in queue\n");
                 }
                 else if (iResult == 0)
                 {
@@ -896,7 +1130,7 @@ DWORD WINAPI counterFunc(LPVOID lpParam) {
     int* counter = (int*)lpParam;
     int pom = 0, moveRedirected = 0;
     message* errMsg;
-    while (true) {
+    while (gameInProgress || gameInitializationInProgress) {
         while (pom != 100) {
             Sleep(10);
             pom++;
@@ -909,10 +1143,11 @@ DWORD WINAPI counterFunc(LPVOID lpParam) {
                 msgEnd->type = DEFEAT;
                 Enqueue(msgEnd, &rootQueueRecv);
                 moveRedirected = 0;
+                LeaveCriticalSection(&csTimer);
                 break;
             }
             moveRedirected++;
-            *counter = 31;
+            *counter = 32;
             //redirect move to other player
             errMsg = (message*)malloc(sizeof(message));
             errMsg->type = PLACE_BOAT_CLIENT_OPONENT;
@@ -927,6 +1162,111 @@ DWORD WINAPI counterFunc(LPVOID lpParam) {
         printf("    counter - %d\n", *counter);
         LeaveCriticalSection(&csTimer);
         pom = 0;
+    }
+
+    return 0;
+}
+
+DWORD WINAPI Bot(LPVOID lpParam) {
+    ActionPlayer player = NONE;
+    if ((int)lpParam == 1)
+        player = FIRST;
+    else
+        player = SECOND;
+
+    bool play = true;
+    char aimingTable[10][10];
+    char* fields = NULL;
+    message msg;
+
+    for (int i = 0; i < 10; i++)
+    {
+        for (int j = 0; j < 10; j++)
+        {
+            aimingTable[i][j] = 0;
+        }
+    }
+
+    if (player == FIRST)
+    {
+        botTableInitialization(boardPlayer1[0]);
+        while (play)
+        {
+            //igra
+            fields = botAim(aimingTable[0]);
+            msg = FormatMessageStruct(AIM_BOAT, player, *fields, *(fields + 1));
+            Sleep(1000);
+            Enqueue(&msg, &rootQueueRecv);
+            free(fields);
+
+            //ceka
+            while (true) {
+                if (QueueCount(rootQueuePlayer1) != 0) {
+                    msg = *Dequeue(&rootQueuePlayer1);
+                    if (msg.player == SECOND && msg.type == HIT)
+                        continue;
+                    if (msg.player == SECOND && msg.type == MISS)
+                        break;
+                    if (msg.player == FIRST && msg.type == HIT)
+                        break;
+                    if (msg.player == FIRST && msg.type == MISS)
+                        continue;
+                    if (msg.type == VICTORY || msg.type == DEFEAT) {
+                        play = false;
+                        break;
+                    }
+                    if (msg.type == TURN_PLAY)
+                        break;
+                    if (msg.type == CHOOSE_GAME || msg.type == BUSY) {
+                        Enqueue(&msg, &rootQueueRecv);
+                        continue;
+                    }
+                }             
+            }
+
+        }
+    }
+    else //(player == SECOND)
+    {
+        botTableInitialization(boardPlayer2[0]);
+        while (play)
+        {
+            //ceka
+            while (true) {
+                if (QueueCount(rootQueuePlayer2) != 0) {
+                    msg = *Dequeue(&rootQueuePlayer2);
+
+                    if (msg.player == SECOND && msg.type == HIT) 
+                        break;
+                    if (msg.player == SECOND && msg.type == MISS)
+                        continue;
+                    if (msg.player == FIRST && msg.type == HIT)
+                        continue;
+                    if (msg.player == FIRST && msg.type == MISS)
+                        break;
+                    if (msg.type == VICTORY || msg.type == DEFEAT) {
+                        play = false;
+                        break;
+                    }
+                    if (msg.type == TURN_PLAY)
+                        break;
+                    if (msg.type == CHOOSE_GAME || msg.type == BUSY) {
+                        Enqueue(&msg, &rootQueueRecv);
+                        continue;
+                    }
+                }
+            }
+
+            if (!play)
+                continue;
+
+            //igra
+            fields = botAim(aimingTable[0]);
+            msg = FormatMessageStruct(AIM_BOAT, player,*fields,*(fields+1));
+            Sleep(1000);
+            Enqueue(&msg, &rootQueueRecv);
+            free(fields);
+        }
     }
 
     return 0;
