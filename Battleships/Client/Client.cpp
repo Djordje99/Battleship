@@ -12,6 +12,8 @@
 #include "UIFunctions.h"
 #include "../Common/Message.h"
 #include "../Common/MessageFormater.cpp"
+#include "../Common/Defines.h"
+#include "../Common/Threads.cpp"
 
 
 #define DEFAULT_BUFLEN 512
@@ -205,15 +207,15 @@ int main(int argc, char** argv)
     threadSender = CreateThread(NULL, 0, &SendMessageToServer, NULL, 0, &threadSenderID);
     threadReceiver = CreateThread(NULL, 0, &ReceiveMessageFromServer, NULL, 0, &threadReceiverID);
     hCounterThread = CreateThread(NULL, 0, &counterFunc, &counter, 0, &hCounterThreadID);
-    //pauseCounterThread(hCounterThread);
+
     InitializeCriticalSection(&csTimer);
 
     WaitForSingleObject(errorSemaphore, INFINITE);
 
     // cleanup
-    CloseHandle(threadSender);
-    CloseHandle(threadReceiver);
-    CloseHandle(hCounterThread);
+    SAFE_DELETE_HANDLE(threadSender);
+    SAFE_DELETE_HANDLE(threadReceiver);
+    SAFE_DELETE_HANDLE(hCounterThread);
     DeleteCriticalSection(&csTimer);
     closesocket(connectSocket);
     WSACleanup();
@@ -238,10 +240,7 @@ DWORD WINAPI SendMessageToServer(LPVOID lpParam) {
     bool stop = false;
     while (!stopCounter) {
         if (isMyTurn) {
-            /*
-            printf("Type cordinate to attack enemy boat; format [0-9, 0-9]: ");
-            scanf("%s", messageToSend);
-            */
+
             memset(userInput, 0, 4);
             set = false;
 
@@ -250,7 +249,7 @@ DWORD WINAPI SendMessageToServer(LPVOID lpParam) {
 
             myTurn();
             stop = false;
-            resumeCounterThread(hCounterThread);
+            resumeThread(hCounterThread);
             while (true)
             {
                 userInputFunction(userInput, &counter);
@@ -292,9 +291,6 @@ DWORD WINAPI SendMessageToServer(LPVOID lpParam) {
                     }
                 }
             }
-
-            /*if (stop)
-                break;*/
             
             if (strcmp(userInput, "exit") == 0) {
                 ReleaseSemaphore(errorSemaphore, 1, NULL);
@@ -330,7 +326,7 @@ DWORD WINAPI SendMessageToServer(LPVOID lpParam) {
 
         if (!isMyTurn && !set)
         {
-            pauseCounterThread(hCounterThread);
+            pauseThread(hCounterThread);
             Sleep(100);
             opponentsTurn();
             set = true;
@@ -339,7 +335,7 @@ DWORD WINAPI SendMessageToServer(LPVOID lpParam) {
         Sleep(10);
     }
 
-    resumeCounterThread(hCounterThread);
+    resumeThread(hCounterThread);
     return 0;
 }
 

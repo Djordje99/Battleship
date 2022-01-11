@@ -1348,26 +1348,6 @@ void resetInput() {
 	SetConsoleCursorPosition(GetStdHandle(STD_OUTPUT_HANDLE), c);
 }
 
-void pauseCounterThread(HANDLE hThread) {
-	DWORD suspend_retval = SuspendThread(hThread);
-	if (suspend_retval == static_cast<DWORD>(-1))
-	{
-		// handle suspend error
-		printf("ERROR on suspend\n");
-		exit(1);
-	}
-}
-
-void resumeCounterThread(HANDLE hThread) {
-	DWORD resume_retval = ResumeThread(hThread);
-	if (resume_retval == static_cast<DWORD>(-1))
-	{
-		// handle resume error
-		printf("ERROR on resume\n");
-		exit(1);
-	}
-}
-
 void opponentsTurn() {
 	_COORD c;
 	c.Y = 0;
