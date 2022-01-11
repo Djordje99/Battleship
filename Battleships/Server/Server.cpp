@@ -10,7 +10,8 @@
 #include "../Common/MessageFormater.cpp"
 #include "../Server/BotFunctions.h"
 #include "GameHelper.h"
-#define SAFE_DELETE_HANDLE(a) if(a){if(CloseHandle(a))printf("closed");} 
+#include <conio.h>
+#define SAFE_DELETE_HANDLE(a) if(a){if(CloseHandle(a))printf("closed\n");} 
 
 #define DEFAULT_BUFLEN 512
 #define DEFAULT_PORT "27016"
@@ -25,6 +26,7 @@ DWORD WINAPI RecvFromPlayer1(LPVOID lpParam);
 DWORD WINAPI RecvFromPlayer2(LPVOID lpParam);
 DWORD WINAPI Bot(LPVOID lpParam);
 DWORD WINAPI counterFunc(LPVOID lpParam);
+DWORD WINAPI ServiceShutDown(LPVOID lpParam);
  
 SOCKET listenSocket = INVALID_SOCKET;
 
@@ -45,6 +47,8 @@ HANDLE threadRecvPlayer1, threadRecvPlayer2;
 DWORD threadRecvPlayer1ID, threadRecvPlayer2ID;
 HANDLE hCounterThread, hBot;
 DWORD hCounterThreadID, hBotID;
+HANDLE hServiceShutDown;
+DWORD threadServiceShutDownID;
 
 CRITICAL_SECTION csTimer;
 int counter = 32;
@@ -60,6 +64,8 @@ int connCountPlayer2 = 0;
 
 char boardPlayer1[10][10];
 char boardPlayer2[10][10];
+
+bool isServiceRunning = true;
 
 int main(void) {
     DWORD threadRequestID, threadProducerID;
@@ -148,10 +154,12 @@ int main(void) {
     //thread for requests made in select function
     threadRequest = CreateThread(NULL, 0, &Requests, NULL, 0, &threadRequestID);
     threadProducer = CreateThread(NULL, 0, &ProducerForClients, NULL, 0, &threadProducerID);
+    hServiceShutDown = CreateThread(NULL, 0, &ServiceShutDown, NULL, 0, &threadServiceShutDownID);
     WaitForSingleObject(errorSemaphore, INFINITE);
 
     // shutdown the connection since we're done
-    iResult = shutdown(acceptedSocket[0], SD_SEND);
+    if(acceptedSocket[0] != INVALID_SOCKET)
+        iResult = shutdown(acceptedSocket[0], SD_SEND);
 
     if (iResult == SOCKET_ERROR)
     {
@@ -161,7 +169,9 @@ int main(void) {
         return 1;
     }
 
-    iResult = shutdown(acceptedSocket[1], SD_SEND);
+    if (acceptedSocket[1] != INVALID_SOCKET)
+        iResult = shutdown(acceptedSocket[1], SD_SEND);
+
     if (iResult == SOCKET_ERROR)
     {
         printf("shutdown failed with error: %d\n", WSAGetLastError());
@@ -175,6 +185,10 @@ int main(void) {
     closesocket(acceptedSocket[0]);
     closesocket(acceptedSocket[1]);
     WSACleanup();
+
+    SAFE_DELETE_HANDLE(threadRequest);
+    SAFE_DELETE_HANDLE(threadProducer);
+    SAFE_DELETE_HANDLE(hServiceShutDown);
 
     return 0;
 }
@@ -202,7 +216,7 @@ DWORD WINAPI Requests(LPVOID lpParam) {
 
     InitializeCriticalSection(&csTimer);
 
-    while (true) {
+    while (isServiceRunning) {
         if (curentClientCount < MAX_CLIENTS + 1)
             FD_SET(listenSocket, &readfds);
 
@@ -279,7 +293,7 @@ DWORD WINAPI Requests(LPVOID lpParam) {
                 unsigned long mode = 1;
                 iResult = ioctlsocket(acceptedSocket[socketSelected], FIONBIO, &mode);
 
-                char msg[5];
+                char msg[24];
                 sprintf(msg, "true%d", socketSelected + 1);
                 //welcome message
                 iResult = send(acceptedSocket[socketSelected], msg, (int)strlen(msg) + 1, 0);
@@ -336,7 +350,7 @@ DWORD WINAPI ProducerForClients(LPVOID lpParam) {
     ActionPlayer hisTurn = FIRST;
     ActionPlayer inGameAgainsBot = NONE;
     int usedFileds = 0;
-    while (true) {
+    while (isServiceRunning) {
         if (QueueCount(rootQueueRecv) != 0) {
             message* msg = Dequeue(&rootQueueRecv);
             int arg1;
@@ -810,6 +824,8 @@ DWORD WINAPI ProducerForClients(LPVOID lpParam) {
 
         Sleep(10);
     }
+
+    return 0;
 }
 
 #pragma region SendToPlayer
@@ -1268,6 +1284,26 @@ DWORD WINAPI Bot(LPVOID lpParam) {
             free(fields);
         }
     }
+
+    return 0;
+}
+
+DWORD WINAPI ServiceShutDown(LPVOID lpParam) {
+    while (true) {
+        if (_kbhit()) {
+            char key = _getch();
+            if (key == 'q' && !gameInProgress)
+                break;
+        }
+        Sleep(250);
+    }
+
+    isServiceRunning = false;
+    printf("Service is shuting down...\n");
+
+    Sleep(500);
+
+    ReleaseSemaphore(errorSemaphore, 1, NULL);  
 
     return 0;
 }
