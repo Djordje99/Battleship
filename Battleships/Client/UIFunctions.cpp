@@ -3,6 +3,8 @@
 #include <windows.h>
 #include <stdlib.h>
 #include <conio.h>
+#include "../Common/Defines.h"
+#include "../Common/RandNum.cpp"
 
 
 void setWindowSize() {
@@ -288,8 +290,6 @@ bool checkIfFieldIsAvailable(char* table, char* coordinate, int length) {
 
 void randomTableInitialization(char* table) {
 	COORD c;
-	HCRYPTPROV   hCryptProv;
-	BYTE         pbData[2];
 
 	char helpTable[10][10];
 	int i, j;
@@ -307,26 +307,16 @@ void randomTableInitialization(char* table) {
 	int counter = 1;
 	bool generateFirstAgain = false;
 
-	CryptAcquireContext(
-		&hCryptProv,
-		NULL,
-		(LPCWSTR)L"Microsoft Base Cryptographic Provider v1.0",
-		PROV_RSA_FULL,
-		CRYPT_VERIFYCONTEXT);
-
-
 
 	while (true)
 	{
 		//generisati 2 puta od 0 do 9 
-		if (CryptGenRandom(hCryptProv, 2, pbData))
-		{
-			inputFirstCoord[0] = pbData[0] % 10 + 65;
-			inputFirstCoord[1] = pbData[1] % 10 + 48;
-			if (inputFirstCoord[1] == 48) {
-				inputFirstCoord[1] = 49;
-			}
+		inputFirstCoord[0] = getRandomNumber() + 65;
+		inputFirstCoord[1] = getRandomNumber() + 48;
+		if (inputFirstCoord[1] == 48) {
+			inputFirstCoord[1] = 49;
 		}
+
 		if (!checkIfFieldIsAvailable(helpTable[0], inputFirstCoord, strlen(inputFirstCoord)))
 		{
 			continue;

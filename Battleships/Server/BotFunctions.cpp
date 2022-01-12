@@ -5,45 +5,33 @@
 #include <conio.h>
 #include <wincrypt.h>
 #include <stdlib.h>
+#include "../Common/Defines.h"
+#include "../Common/RandNum.cpp"
 
-char* botAim(char* aimingTable) {
-	HCRYPTPROV   hCryptProv;
-	BYTE         pbData[2];
 
-	int i, j;
-
-	CryptAcquireContext(
-		&hCryptProv,
-		NULL,
-		(LPCWSTR)L"Microsoft Base Cryptographic Provider v1.0",
-		PROV_RSA_FULL,
-		CRYPT_VERIFYCONTEXT);
+COORDINATES botAim(char* aimingTable) {
 
 	bool validAim = false;
-
+	int i, j;
+	
 	while (!validAim)
 	{
-		if (CryptGenRandom(hCryptProv, 2, pbData))
+		i = getRandomNumber();
+		j = getRandomNumber();
+
+		if (*(aimingTable + i * 10 + j) == 0)
 		{
-
-			i = pbData[0] % 10;
-			j = pbData[1] % 10;
-
-			if (*(aimingTable + i * 10 + j) == 0)
-			{
-				*(aimingTable + i * 10 + j) = 1;
-			}
-			else
-				continue;
+			*(aimingTable + i * 10 + j) = 1;
 		}
+		else
+			continue;
 
 		validAim = true;
 	}
 
-	char* ret = (char*)malloc(3);
-	*(ret + 0) = (char)i;
-	*(ret + 1) = (char)j;
-	*(ret + 2) = '\0';
+	COORDINATES ret;
+	ret.X = i;
+	ret.Y = j;
 
 	return ret;
 }
@@ -84,8 +72,6 @@ bool checkIfFieldIsAvailable(char* table, char* coordinate, int length) {
 
 void botTableInitialization(char* table) {
 	_COORD c;
-	HCRYPTPROV   hCryptProv;
-	BYTE         pbData[2];
 
 	char helpTable[10][10];
 	int i, j;
@@ -103,24 +89,15 @@ void botTableInitialization(char* table) {
 	int counter = 1;
 	bool generateFirstAgain = false;
 
-	CryptAcquireContext(
-		&hCryptProv,
-		NULL,
-		(LPCWSTR)L"Microsoft Base Cryptographic Provider v1.0",
-		PROV_RSA_FULL,
-		CRYPT_VERIFYCONTEXT);
-
 	while (true)
 	{
 		//generisati 2 puta od 0 do 9 
-		if (CryptGenRandom(hCryptProv, 2, pbData))
-		{
-			inputFirstCoord[0] = pbData[0] % 10 + 65;
-			inputFirstCoord[1] = pbData[1] % 10 + 48;
-			if (inputFirstCoord[1] == 48) {
-				inputFirstCoord[1] = 49;
-			}
+		inputFirstCoord[0] = getRandomNumber() + 65;
+		inputFirstCoord[1] = getRandomNumber() + 48;
+		if (inputFirstCoord[1] == 48) {
+			inputFirstCoord[1] = 49;
 		}
+
 		if (!checkIfFieldIsAvailable(helpTable[0], inputFirstCoord, strlen(inputFirstCoord)))
 		{
 			continue;
@@ -484,5 +461,4 @@ void botTableInitialization(char* table) {
 			*(table + i * 10 + j) = helpTable[i][j] == 3 ? 0 : helpTable[i][j] == 1 ? 3 : 0;
 		}
 	}
-
 }

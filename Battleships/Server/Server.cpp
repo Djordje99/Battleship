@@ -53,6 +53,7 @@ DWORD threadServiceShutDownID;
 
 CRITICAL_SECTION csTimer;
 int counter = 32;
+ActionPlayer hisTurn = NONE;
 
 bool closeHandlesPlayer1 = false;
 bool closeHandlesPlayer2 = false;
@@ -221,11 +222,6 @@ DWORD WINAPI Requests(LPVOID lpParam) {
         if (curentClientCount < MAX_CLIENTS + 1)
             FD_SET(listenSocket, &readfds);
 
-        //for (int i = 0; i < curentClientCount; i++)
-        //{
-        //    FD_SET(acceptedSocket[i], &readfds);
-        //}
-
         int result = select(0, &readfds, NULL, NULL, &timeVal);
 
         if (result == 0) {
@@ -316,20 +312,12 @@ DWORD WINAPI Requests(LPVOID lpParam) {
 
                 if (socketSelected == 0)
                 {
-                    //CloseHandle(threadSendPlayer1);
-                    //SAFE_DELETE_HANDLE(threadRecvPlayer1);
-                    //CloseHandle(threadRecvPlayer1);
-                    //SAFE_DELETE_HANDLE(threadRecvPlayer1);
                     closeHandlesPlayer1 = false;
                     threadSendPlayer1 = CreateThread(NULL, 0, &SendToPlayer1, NULL, 0, &threadSendPlayer1ID);
                     threadRecvPlayer1 = CreateThread(NULL, 0, &RecvFromPlayer1, NULL, 0, &threadRecvPlayer1ID);
                 }
                 if (socketSelected == 1)
                 {
-                    //CloseHandle(threadSendPlayer2);
-                    //SAFE_DELETE_HANDLE(threadSendPlayer2);
-                    //CloseHandle(threadRecvPlayer2);
-                    //SAFE_DELETE_HANDLE(threadRecvPlayer2);
                     closeHandlesPlayer2 = false;
                     threadSendPlayer2 = CreateThread(NULL, 0, &SendToPlayer2, NULL, 0, &threadSendPlayer2ID);
                     threadRecvPlayer2 = CreateThread(NULL, 0, &RecvFromPlayer2, NULL, 0, &threadRecvPlayer2ID);
@@ -348,7 +336,7 @@ DWORD WINAPI Requests(LPVOID lpParam) {
 }
 
 DWORD WINAPI ProducerForClients(LPVOID lpParam) {
-    ActionPlayer hisTurn = FIRST;
+    hisTurn = FIRST;
     ActionPlayer inGameAgainsBot = NONE;
     int usedFileds = 0;
     while (isServiceRunning) {
@@ -737,7 +725,7 @@ DWORD WINAPI ProducerForClients(LPVOID lpParam) {
                 }
                 case DEFEAT:
                 {
-                    if (hisTurn == FIRST)
+                    if (msg->player == FIRST)
                     {
                         message msgV = FormatMessageStruct(VICTORY, SECOND, 0, 0);
                         message msgD = FormatMessageStruct(DEFEAT, FIRST, 0, 0);
@@ -787,7 +775,6 @@ DWORD WINAPI ProducerForClients(LPVOID lpParam) {
                         connCountPlayer1 = 0;
                         connCountPlayer2 = 0;
 
-                        //CloseHandle(hCounterThread);
                         Sleep(500);
                         if (!gameInitializationInProgress && gameInProgress)
                         {
@@ -1012,8 +999,8 @@ DWORD WINAPI RecvFromPlayer2(LPVOID lpParam) {
 
 DWORD WINAPI counterFunc(LPVOID lpParam) {
     int* counter = (int*)lpParam;
-    int pom = 0, moveRedirected = 0;
-    message* errMsg;
+    int pom = 0, moveRedirected1 = 0, moveRedirected2 = 0;
+    message errMsg, msgEnd;
     while (gameInProgress || gameInitializationInProgress) {
         while (pom != 100) {
             Sleep(10);
@@ -1022,22 +1009,26 @@ DWORD WINAPI counterFunc(LPVOID lpParam) {
 
         EnterCriticalSection(&csTimer);
         if (*counter == 0) {
-            if (moveRedirected == 1) {
-                message* msgEnd = (message*)malloc(sizeof(message));
-                msgEnd->type = DEFEAT;
-                Enqueue(msgEnd, &rootQueueRecv);
-                moveRedirected = 0;
+            if (moveRedirected1 == 1 || moveRedirected2 == 1) {
+                if (moveRedirected1 == 1)
+                    msgEnd = FormatMessageStruct(DEFEAT, FIRST, 0, 0);
+                else
+                    msgEnd = FormatMessageStruct(DEFEAT, SECOND, 0, 0);
+                Enqueue(&msgEnd, &rootQueueRecv);
+                moveRedirected1 = 0;
+                moveRedirected2 = 0;
                 LeaveCriticalSection(&csTimer);
                 break;
             }
-            moveRedirected++;
+            if (hisTurn == FIRST)
+                moveRedirected1++;
+            else
+                moveRedirected2++;
             *counter = 32;
             //redirect move to other player
-            errMsg = (message*)malloc(sizeof(message));
-            errMsg->type = PLACE_BOAT_CLIENT_OPONENT;
-            errMsg->player = NONE;
+            errMsg = FormatMessageStruct(PLACE_BOAT_CLIENT_OPONENT, NONE, 0,0);
 
-            Enqueue(errMsg, &rootQueueRecv);
+            Enqueue(&errMsg, &rootQueueRecv);
             LeaveCriticalSection(&csTimer);
             //Sleep(300);
             continue;
@@ -1060,7 +1051,8 @@ DWORD WINAPI Bot(LPVOID lpParam) {
 
     bool play = true;
     char aimingTable[10][10];
-    char* fields = NULL;
+    //char* fields = NULL;
+    COORDINATES fields;
     message msg;
 
     for (int i = 0; i < 10; i++)
@@ -1078,10 +1070,11 @@ DWORD WINAPI Bot(LPVOID lpParam) {
         {
             //igra
             fields = botAim(aimingTable[0]);
-            msg = FormatMessageStruct(AIM_BOAT, player, *fields, *(fields + 1));
+            //msg = FormatMessageStruct(AIM_BOAT, player, *fields, *(fields + 1));
+            msg = FormatMessageStruct(AIM_BOAT, player, fields.X, fields.Y);
+            //free(fields);
             Sleep(1000);
             Enqueue(&msg, &rootQueueRecv);
-            free(fields);
 
             //ceka
             while (true) {
@@ -1146,10 +1139,11 @@ DWORD WINAPI Bot(LPVOID lpParam) {
 
             //igra
             fields = botAim(aimingTable[0]);
-            msg = FormatMessageStruct(AIM_BOAT, player,*fields,*(fields+1));
+            //msg = FormatMessageStruct(AIM_BOAT, player,*fields,*(fields+1));
+            msg = FormatMessageStruct(AIM_BOAT, player, fields.X, fields.Y);
             Sleep(1000);
             Enqueue(&msg, &rootQueueRecv);
-            free(fields);
+            //free(fields);
         }
     }
 

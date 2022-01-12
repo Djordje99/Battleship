@@ -2,7 +2,12 @@
 #ifndef BOTFUNC
 #define BOTFUNC
 
-char* botAim(char* aimingTable);
+struct COORDINATES {
+	int X;
+	int Y;
+};
+
+COORDINATES botAim(char* aimingTable);
 
 void botTableInitialization(char* table);
 

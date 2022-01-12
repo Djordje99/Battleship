@@ -41,5 +41,8 @@
     <ClCompile Include="Threads.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
+    <ClCompile Include="RandNum.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
   </ItemGroup>
 </Project>
