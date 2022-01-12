@@ -9,7 +9,7 @@
 #include "../Common/RandNum.cpp"
 
 
-COORDINATES botAim(char* aimingTable) {
+MATRIX_FIELD botAim(char* aimingTable) {
 
 	bool validAim = false;
 	int i, j;
@@ -29,9 +29,9 @@ COORDINATES botAim(char* aimingTable) {
 		validAim = true;
 	}
 
-	COORDINATES ret;
-	ret.X = i;
-	ret.Y = j;
+	MATRIX_FIELD ret;
+	ret.I = i;
+	ret.J = j;
 
 	return ret;
 }

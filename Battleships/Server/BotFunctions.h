@@ -2,12 +2,12 @@
 #ifndef BOTFUNC
 #define BOTFUNC
 
-struct COORDINATES {
-	int X;
-	int Y;
+struct MATRIX_FIELD {
+	int I;
+	int J;
 };
 
-COORDINATES botAim(char* aimingTable);
+MATRIX_FIELD botAim(char* aimingTable);
 
 void botTableInitialization(char* table);
 

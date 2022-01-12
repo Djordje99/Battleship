@@ -1051,8 +1051,7 @@ DWORD WINAPI Bot(LPVOID lpParam) {
 
     bool play = true;
     char aimingTable[10][10];
-    //char* fields = NULL;
-    COORDINATES fields;
+    MATRIX_FIELD fields;
     message msg;
 
     for (int i = 0; i < 10; i++)
@@ -1070,9 +1069,7 @@ DWORD WINAPI Bot(LPVOID lpParam) {
         {
             //igra
             fields = botAim(aimingTable[0]);
-            //msg = FormatMessageStruct(AIM_BOAT, player, *fields, *(fields + 1));
-            msg = FormatMessageStruct(AIM_BOAT, player, fields.X, fields.Y);
-            //free(fields);
+            msg = FormatMessageStruct(AIM_BOAT, player, fields.I, fields.J);
             Sleep(1000);
             Enqueue(&msg, &rootQueueRecv);
 
@@ -1139,11 +1136,9 @@ DWORD WINAPI Bot(LPVOID lpParam) {
 
             //igra
             fields = botAim(aimingTable[0]);
-            //msg = FormatMessageStruct(AIM_BOAT, player,*fields,*(fields+1));
-            msg = FormatMessageStruct(AIM_BOAT, player, fields.X, fields.Y);
+            msg = FormatMessageStruct(AIM_BOAT, player, fields.I, fields.J);
             Sleep(1000);
             Enqueue(&msg, &rootQueueRecv);
-            //free(fields);
         }
     }
 
