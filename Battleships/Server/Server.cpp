@@ -1000,6 +1000,7 @@ DWORD WINAPI RecvFromPlayer2(LPVOID lpParam) {
 DWORD WINAPI counterFunc(LPVOID lpParam) {
     int* counter = (int*)lpParam;
     int pom = 0, moveRedirected1 = 0, moveRedirected2 = 0;
+
     message errMsg, msgEnd;
     while (gameInProgress || gameInitializationInProgress) {
         while (pom != 100) {
@@ -1018,6 +1019,7 @@ DWORD WINAPI counterFunc(LPVOID lpParam) {
                 moveRedirected1 = 0;
                 moveRedirected2 = 0;
                 LeaveCriticalSection(&csTimer);
+                Sleep(50);
                 break;
             }
             if (hisTurn == FIRST)
