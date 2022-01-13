@@ -1,0 +1,24 @@
+// Debug library initialized ...
+//                                                                          
+// Each log entry has the following syntax:                                 
+//                                                                          
+// + BYTES_DELTA (NEW_BYTES - OLD_BYTES) NEW_COUNT allocs BackTrace TRACEID 
+// + COUNT_DELTA (NEW_COUNT - OLD_COUNT) BackTrace TRACEID allocations      
+//     ... stack trace ...                                                  
+//                                                                          
+// where:                                                                   
+//                                                                          
+//     BYTES_DELTA - increase in bytes between before and after log         
+//     NEW_BYTES - bytes in after log                                       
+//     OLD_BYTES - bytes in before log                                      
+//     COUNT_DELTA - increase in allocations between before and after log   
+//     NEW_COUNT - number of allocations in after log                       
+//     OLD_COUNT - number of allocations in before log                      
+//     TRACEID - decimal index of the stack trace in the trace database     
+//         (can be used to search for allocation instances in the original  
+//         UMDH logs).                                                      
+//                                                                          
+
+
+
+Total decrease ==      0 requested +      0 overhead =      0

@@ -1,0 +1,44 @@
+// Debug library initialized ...
+DBGHELP: Server - private symbols & lines 
+         D:\Studije\4\IKP\IKPProjekat\Battleships\x64\Debug\Server.pdb
+DBGHELP: ntdll - private symbols  
+         d:\symbols\ntdll.pdb\96EF4ED537402DAAA51D4A4212EA4B2C1\ntdll.pdb
+DBGHELP: KERNEL32 - private symbols  
+         d:\symbols\kernel32.pdb\DBE09E71B3709CB722C55E5573FA7BE11\kernel32.pdb
+DBGHELP: KERNELBASE - private symbols  
+         d:\symbols\kernelbase.pdb\95CADD762F69E4CC339AA93662C4EFAE1\kernelbase.pdb
+DBGHELP: WS2_32 - private symbols  
+         d:\symbols\ws2_32.pdb\5C73FC6F5404081459A8538913657C761\ws2_32.pdb
+DBGHELP: RPCRT4 - private symbols  
+         d:\symbols\rpcrt4.pdb\7943079B654BC6FA588AE8B7545025021\rpcrt4.pdb
+DBGHELP: VCRUNTIME140D - private symbols & lines 
+         d:\symbols\vcruntime140d.amd64.pdb\F5E005866A6C4EDDACEAC2E422C09F9A1\vcruntime140d.amd64.pdb
+DBGHELP: ucrtbased - private symbols & lines 
+         d:\symbols\ucrtbased.pdb\27AC0972E52584FE1A88B1FE70D1603B2\ucrtbased.pdb
+DBGHELP: sechost - private symbols  
+         d:\symbols\sechost.pdb\43CDDFE9B08EDC20AC1D8B53D1122F5C1\sechost.pdb
+DBGHELP: mswsock - private symbols  
+         d:\symbols\mswsock.pdb\BCC0796E6035FC89CE7531FB953FB0721\mswsock.pdb
+//                                                                          
+// Each log entry has the following syntax:                                 
+//                                                                          
+// + BYTES_DELTA (NEW_BYTES - OLD_BYTES) NEW_COUNT allocs BackTrace TRACEID 
+// + COUNT_DELTA (NEW_COUNT - OLD_COUNT) BackTrace TRACEID allocations      
+//     ... stack trace ...                                                  
+//                                                                          
+// where:                                                                   
+//                                                                          
+//     BYTES_DELTA - increase in bytes between before and after log         
+//     NEW_BYTES - bytes in after log                                       
+//     OLD_BYTES - bytes in before log                                      
+//     COUNT_DELTA - increase in allocations between before and after log   
+//     NEW_COUNT - number of allocations in after log                       
+//     OLD_COUNT - number of allocations in before log                      
+//     TRACEID - decimal index of the stack trace in the trace database     
+//         (can be used to search for allocation instances in the original  
+//         UMDH logs).                                                      
+//                                                                          
+
+
+
+Total decrease ==      0 requested +      0 overhead =      0
