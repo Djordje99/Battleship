@@ -10,7 +10,7 @@ typedef struct ELEMENT
 
 }element;
 
-void Enqueue(message* message, element** root); //will be changed to matrix or cordinates
+void Enqueue(message* message, element** root);
 message* Dequeue(element **root);
 void InitQueue(element** root);
 int QueueCount(element* root);

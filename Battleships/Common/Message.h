@@ -32,8 +32,6 @@ typedef struct MESSAGE_TCP {
 	ActionPlayer player;
 	char argument[4];
 	char matrixArgumetn[10][10];
-	//int argument;
-	//char aditionalArgumet[4];
 }message;
 
 #endif

@@ -13,10 +13,6 @@ message FormatMessageStruct(MessageType type, ActionPlayer player, char arg1, ch
 
 	msg.type = type;
 	msg.player = player;
-	/*if(arg1 != NULL)
-		strcpy(msg.argumet, arg1);
-	if(arg2 != NULL)
-		strcpy(msg.aditionalArgumet, arg2);*/
 	msg.argument[0] = arg1;
 	msg.argument[1] = arg2;
 	msg.argument[2] = '/0';

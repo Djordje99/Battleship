@@ -13,6 +13,7 @@
 #include <conio.h>
 #include "../Common/Defines.h"
 #include "../Common/Threads.cpp"
+#include <assert.h>
 
 #define DEFAULT_BUFLEN 512
 #define DEFAULT_PORT "27016"
@@ -70,6 +71,7 @@ char boardPlayer2[10][10];
 bool isServiceRunning = true;
 
 int main(void) {
+
     DWORD threadRequestID, threadProducerID;
     HANDLE threadRequest, threadProducer;
 
@@ -1097,7 +1099,8 @@ DWORD WINAPI Bot(LPVOID lpParam) {
                         Enqueue(&msg, &rootQueueRecv);
                         continue;
                     }
-                }             
+                }
+                Sleep(40);
             }
 
         }
@@ -1131,6 +1134,7 @@ DWORD WINAPI Bot(LPVOID lpParam) {
                         continue;
                     }
                 }
+                Sleep(40);
             }
 
             if (!play)
