@@ -19,17 +19,93 @@
 #define DEFAULT_PORT "27016"
 #define MAX_CLIENTS 2
 
+#pragma region functions
+
 bool InitializeWindowsSockets();
+
+/*
+    Requests
+    -------------------------------------------------------------------
+    Requests - prima konekcije i odobrava ili odbija u yavisnosti od stanja u kojem se nalazi
+    -------------------------------------------------------------------
+    Povratna vrednost: nema
+*/
 DWORD WINAPI Requests(LPVOID lpParam);
+
+/*
+    ProducerForClients
+    -------------------------------------------------------------------
+    ProducerForClients - cita poruku iz queue-a i vrsi proracune i odlucuje koju poruku da formira kom klijentu, i postavlja nove poruke u queue za klijente
+    -------------------------------------------------------------------
+    Povratna vrednost: nema
+*/
 DWORD WINAPI ProducerForClients(LPVOID lpParam);
+
+/*
+    SendToPlayer1
+    -------------------------------------------------------------------
+    SendToPlayer1 - cita poruku iz queue-a za klijenta broj 1, i salje je putem tcp/ip protokola na klijentsku stranu.
+    -------------------------------------------------------------------
+    Povratna vrednost: nema
+*/
 DWORD WINAPI SendToPlayer1(LPVOID lpParam);
+
+/*
+    SendToPlayer2
+    -------------------------------------------------------------------
+    SendToPlayer2 - cita poruku iz queue-a za klijenta broj 2, i salje je putem tcp/ip protokola na klijentsku stranu.
+    -------------------------------------------------------------------
+    Povratna vrednost: nema
+*/
 DWORD WINAPI SendToPlayer2(LPVOID lpParam);
+
+/*
+    RecvFromPlayer1
+    -------------------------------------------------------------------
+    RecvFromPlayer1 - prima poruku od klijenta 1 preko tcp/ip protokola i postavlja je u queue za server da procita
+    -------------------------------------------------------------------
+    Povratna vrednost: nema
+*/
 DWORD WINAPI RecvFromPlayer1(LPVOID lpParam);
+
+/*
+    RecvFromPlayer2
+    -------------------------------------------------------------------
+    RecvFromPlayer2 - prima poruku od klijenta 2 preko tcp/ip protokola i postavlja je u queue za server da procita
+    -------------------------------------------------------------------
+    Povratna vrednost: nema
+*/
 DWORD WINAPI RecvFromPlayer2(LPVOID lpParam);
+
+/*
+    Bot
+    -------------------------------------------------------------------
+    Bot - omogucava se igra protiv servera.
+    -------------------------------------------------------------------
+    Povratna vrednost: nema
+*/
 DWORD WINAPI Bot(LPVOID lpParam);
+
+/*
+    counterFunc
+    -------------------------------------------------------------------
+    counterFunc - prati preostalo vreme za potez za klijente, isto tako i odlucuje da li je kraj ako neki klijent preskoci dva puta potez
+    -------------------------------------------------------------------
+    Povratna vrednost: nema
+*/
 DWORD WINAPI counterFunc(LPVOID lpParam);
+
+/*
+    ServiceShutDown
+    -------------------------------------------------------------------
+    ServiceShutDown - omogucava se server ugasi pravilno ako igra nije u toku i ako je pritisnuto 'q'
+    -------------------------------------------------------------------
+    Povratna vrednost: nema
+*/
 DWORD WINAPI ServiceShutDown(LPVOID lpParam);
- 
+
+#pragma endregion
+
 SOCKET listenSocket = INVALID_SOCKET;
 
 SOCKET acceptedSocket[MAX_CLIENTS];

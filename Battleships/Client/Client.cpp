@@ -24,13 +24,40 @@
 // define needed for window size
 #define _WIN32_WINNT 0x0500
 
+#pragma region functions
+
 // Initializes WinSock2 library
 // Returns true if succeeded, false otherwise.
 bool InitializeWindowsSockets();
 
+/*
+    SendMessageToServer
+    -------------------------------------------------------------------
+    SendMessageToServer - salje poruku ka serveru
+    -------------------------------------------------------------------
+    Povratna vrednost: nema
+*/
 DWORD WINAPI SendMessageToServer(LPVOID lpParam);
+
+/*
+    ReceiveMessageFromServer
+    -------------------------------------------------------------------
+    ReceiveMessageFromServer - prima poruku od servera i vrsi ovradu poruke
+    -------------------------------------------------------------------
+    Povratna vrednost: nema
+*/
 DWORD WINAPI ReceiveMessageFromServer(LPVOID lpParam);
+
+/*
+    counterFunc
+    -------------------------------------------------------------------
+    counterFunc - vodi racuna o vremenu koje je preostalo za potez
+    -------------------------------------------------------------------
+    Povratna vrednost: nema
+*/
 DWORD WINAPI counterFunc(LPVOID lpParam);
+
+#pragma endregion
 
 char messageToSend[MESSAGE_SEND_BUFFER_SIZE] = "";    
 char receivedMessage[MESSAGE_RECIEVE_BUFFER_SIZE] = "";
